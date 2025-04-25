@@ -9,7 +9,7 @@ type CORSConfig struct {
 	AllowedHeaders   string
 	ExposedHeaders   string
 	AllowCredentials bool
-	MaxAge          int
+	MaxAge           int
 }
 
 // NewCORSConfig создает новую конфигурацию CORS
@@ -18,11 +18,11 @@ func NewCORSConfig() *CORSConfig {
 	allowCredentials, _ := strconv.ParseBool(getEnv("CORS_ALLOW_CREDENTIALS", "true"))
 
 	return &CORSConfig{
-		AllowedOrigins:   getEnv("CORS_ALLOWED_ORIGINS", "*"),
+		AllowedOrigins:   getEnv("CORS_ALLOWED_ORIGINS", "http://localhost:8000,http://10.3.13.28:8000"),
 		AllowedMethods:   getEnv("CORS_ALLOWED_METHODS", "GET,POST,PUT,DELETE,OPTIONS"),
 		AllowedHeaders:   getEnv("CORS_ALLOWED_HEADERS", "Accept,Authorization,Content-Type,X-CSRF-Token"),
 		ExposedHeaders:   getEnv("CORS_EXPOSED_HEADERS", "Link"),
 		AllowCredentials: allowCredentials,
-		MaxAge:          maxAge,
+		MaxAge:           maxAge,
 	}
-} 
+}

@@ -12,9 +12,9 @@ type ServerConfig struct {
 
 // NewServerConfig создает новую конфигурацию сервера
 func NewServerConfig() *ServerConfig {
-	port, _ := strconv.Atoi(getEnv("SERVER_PORT", "8080"))
+	port, _ := strconv.Atoi(getEnv("SERVER_PORT", "8000"))
 	return &ServerConfig{
 		Port: port,
 		Host: getEnv("SERVER_HOST", "0.0.0.0"),
 	}
-} 
+}

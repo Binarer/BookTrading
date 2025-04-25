@@ -22,7 +22,7 @@ import (
 // @contact.email support@swagger.io
 // @license.name Apache 2.0
 // @license.url http://www.apache.org/licenses/LICENSE-2.0.html
-// @host localhost:8080
+// @host 10.3.13.28:8000
 // @BasePath /api/v1
 // @schemes http
 

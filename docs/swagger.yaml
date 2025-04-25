@@ -1,0 +1,199 @@
+basePath: /api/v1
+definitions:
+  domain.Book:
+    properties:
+      author:
+        type: string
+      created_at:
+        type: string
+      description:
+        type: string
+      id:
+        type: integer
+      tags:
+        items:
+          $ref: '#/definitions/domain.Tag'
+        type: array
+      title:
+        type: string
+      updated_at:
+        type: string
+    type: object
+  domain.Tag:
+    properties:
+      created_at:
+        type: string
+      id:
+        type: integer
+      name:
+        type: string
+      updated_at:
+        type: string
+    type: object
+  http.AddTagsToBookRequest:
+    type: object
+  http.CreateTagRequest:
+    properties:
+      name:
+        example: fiction
+        type: string
+    type: object
+host: localhost:8080
+info:
+  contact: {}
+  description: API for book trading system with tag support
+  title: Book Trading API
+  version: "1.0"
+paths:
+  /api/v1/books/{id}/tags:
+    post:
+      consumes:
+      - application/json
+      description: Add multiple tags to a book
+      parameters:
+      - description: Book ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Tag IDs
+        in: body
+        name: tags
+        required: true
+        schema:
+          $ref: '#/definitions/http.AddTagsToBookRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+      summary: Add tags to book
+      tags:
+      - books
+  /api/v1/tags:
+    post:
+      consumes:
+      - application/json
+      description: Create a new tag with the given name
+      parameters:
+      - description: Tag name
+        in: body
+        name: tag
+        required: true
+        schema:
+          $ref: '#/definitions/http.CreateTagRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/domain.Tag'
+      summary: Create a new tag
+      tags:
+      - tags
+  /books:
+    post:
+      consumes:
+      - application/json
+      description: Create a new book with the given details
+      parameters:
+      - description: Book details
+        in: body
+        name: book
+        required: true
+        schema:
+          $ref: '#/definitions/domain.Book'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/domain.Book'
+      summary: Create a new book
+      tags:
+      - books
+  /books/{id}:
+    get:
+      description: Get book information by ID
+      parameters:
+      - description: Book ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/domain.Book'
+      summary: Get book by ID
+      tags:
+      - books
+  /books/search:
+    get:
+      description: Search books that have all specified tags
+      parameters:
+      - collectionFormat: csv
+        description: Tag IDs
+        in: query
+        items:
+          type: integer
+        name: tag_id
+        required: true
+        type: array
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/domain.Book'
+            type: array
+      summary: Search books by tags
+      tags:
+      - books
+  /tags/{id}:
+    get:
+      description: Get tag information by ID
+      parameters:
+      - description: Tag ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/domain.Tag'
+      summary: Get tag by ID
+      tags:
+      - tags
+  /tags/popular:
+    get:
+      description: Get list of popular tags
+      parameters:
+      - description: Number of tags to return
+        in: query
+        name: limit
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/domain.Tag'
+            type: array
+      summary: Get popular tags
+      tags:
+      - tags
+swagger: "2.0"

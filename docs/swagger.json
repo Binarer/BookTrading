@@ -9,6 +9,40 @@
     "host": "localhost:8080",
     "basePath": "/api/v1",
     "paths": {
+        "/api/v1/books": {
+            "post": {
+                "description": "Create a new book with the given details",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "books"
+                ],
+                "summary": "Create a new book",
+                "parameters": [
+                    {
+                        "description": "Book details",
+                        "name": "book",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/book.Book"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/book.Book"
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/books/{id}/tags": {
             "post": {
                 "description": "Add multiple tags to a book",
@@ -75,41 +109,7 @@
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/domain.Tag"
-                        }
-                    }
-                }
-            }
-        },
-        "/books": {
-            "post": {
-                "description": "Create a new book with the given details",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "books"
-                ],
-                "summary": "Create a new book",
-                "parameters": [
-                    {
-                        "description": "Book details",
-                        "name": "book",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/domain.Book"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/domain.Book"
+                            "$ref": "#/definitions/tag.Tag"
                         }
                     }
                 }
@@ -144,7 +144,7 @@
                         "schema": {
                             "type": "array",
                             "items": {
-                                "$ref": "#/definitions/domain.Book"
+                                "$ref": "#/definitions/book.Book"
                             }
                         }
                     }
@@ -174,7 +174,7 @@
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/domain.Book"
+                            "$ref": "#/definitions/book.Book"
                         }
                     }
                 }
@@ -204,7 +204,7 @@
                         "schema": {
                             "type": "array",
                             "items": {
-                                "$ref": "#/definitions/domain.Tag"
+                                "$ref": "#/definitions/tag.Tag"
                             }
                         }
                     }
@@ -234,7 +234,7 @@
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/domain.Tag"
+                            "$ref": "#/definitions/tag.Tag"
                         }
                     }
                 }
@@ -242,7 +242,7 @@
         }
     },
     "definitions": {
-        "domain.Book": {
+        "book.Book": {
             "type": "object",
             "properties": {
                 "author": {
@@ -260,7 +260,7 @@
                 "tags": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/domain.Tag"
+                        "$ref": "#/definitions/tag.Tag"
                     }
                 },
                 "title": {
@@ -268,10 +268,38 @@
                 },
                 "updated_at": {
                     "type": "string"
+                },
+                "user_id": {
+                    "type": "integer"
                 }
             }
         },
-        "domain.Tag": {
+        "http.AddTagsToBookRequest": {
+            "type": "object",
+            "properties": {
+                "tag_ids": {
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    },
+                    "example": [
+                        1,
+                        2,
+                        3
+                    ]
+                }
+            }
+        },
+        "http.CreateTagRequest": {
+            "type": "object",
+            "properties": {
+                "name": {
+                    "type": "string",
+                    "example": "fiction"
+                }
+            }
+        },
+        "tag.Tag": {
             "type": "object",
             "properties": {
                 "created_at": {
@@ -285,18 +313,6 @@
                 },
                 "updated_at": {
                     "type": "string"
-                }
-            }
-        },
-        "http.AddTagsToBookRequest": {
-            "type": "object"
-        },
-        "http.CreateTagRequest": {
-            "type": "object",
-            "properties": {
-                "name": {
-                    "type": "string",
-                    "example": "fiction"
                 }
             }
         }

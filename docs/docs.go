@@ -15,6 +15,40 @@ const docTemplate = `{
     "host": "{{.Host}}",
     "basePath": "{{.BasePath}}",
     "paths": {
+        "/api/v1/books": {
+            "post": {
+                "description": "Create a new book with the given details",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "books"
+                ],
+                "summary": "Create a new book",
+                "parameters": [
+                    {
+                        "description": "Book details",
+                        "name": "book",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/book.Book"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/book.Book"
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/books/{id}/tags": {
             "post": {
                 "description": "Add multiple tags to a book",
@@ -81,41 +115,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/domain.Tag"
-                        }
-                    }
-                }
-            }
-        },
-        "/books": {
-            "post": {
-                "description": "Create a new book with the given details",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "books"
-                ],
-                "summary": "Create a new book",
-                "parameters": [
-                    {
-                        "description": "Book details",
-                        "name": "book",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/domain.Book"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/domain.Book"
+                            "$ref": "#/definitions/tag.Tag"
                         }
                     }
                 }
@@ -150,7 +150,7 @@ const docTemplate = `{
                         "schema": {
                             "type": "array",
                             "items": {
-                                "$ref": "#/definitions/domain.Book"
+                                "$ref": "#/definitions/book.Book"
                             }
                         }
                     }
@@ -180,7 +180,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/domain.Book"
+                            "$ref": "#/definitions/book.Book"
                         }
                     }
                 }
@@ -210,7 +210,7 @@ const docTemplate = `{
                         "schema": {
                             "type": "array",
                             "items": {
-                                "$ref": "#/definitions/domain.Tag"
+                                "$ref": "#/definitions/tag.Tag"
                             }
                         }
                     }
@@ -240,7 +240,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/domain.Tag"
+                            "$ref": "#/definitions/tag.Tag"
                         }
                     }
                 }
@@ -248,7 +248,7 @@ const docTemplate = `{
         }
     },
     "definitions": {
-        "domain.Book": {
+        "book.Book": {
             "type": "object",
             "properties": {
                 "author": {
@@ -266,7 +266,7 @@ const docTemplate = `{
                 "tags": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/domain.Tag"
+                        "$ref": "#/definitions/tag.Tag"
                     }
                 },
                 "title": {
@@ -274,10 +274,38 @@ const docTemplate = `{
                 },
                 "updated_at": {
                     "type": "string"
+                },
+                "user_id": {
+                    "type": "integer"
                 }
             }
         },
-        "domain.Tag": {
+        "http.AddTagsToBookRequest": {
+            "type": "object",
+            "properties": {
+                "tag_ids": {
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    },
+                    "example": [
+                        1,
+                        2,
+                        3
+                    ]
+                }
+            }
+        },
+        "http.CreateTagRequest": {
+            "type": "object",
+            "properties": {
+                "name": {
+                    "type": "string",
+                    "example": "fiction"
+                }
+            }
+        },
+        "tag.Tag": {
             "type": "object",
             "properties": {
                 "created_at": {
@@ -293,18 +321,6 @@ const docTemplate = `{
                     "type": "string"
                 }
             }
-        },
-        "http.AddTagsToBookRequest": {
-            "type": "object"
-        },
-        "http.CreateTagRequest": {
-            "type": "object",
-            "properties": {
-                "name": {
-                    "type": "string",
-                    "example": "fiction"
-                }
-            }
         }
     }
 }`
@@ -312,9 +328,9 @@ const docTemplate = `{
 // SwaggerInfo holds exported Swagger Info so clients can modify it
 var SwaggerInfo = &swag.Spec{
 	Version:          "1.0",
-	Host:             getEnv("SWAGGER_HOST", "localhost:8000"),
+	Host:             "localhost:8080",
 	BasePath:         "/api/v1",
-	Schemes:          []string{"http"},
+	Schemes:          []string{},
 	Title:            "Book Trading API",
 	Description:      "API for book trading system with tag support",
 	InfoInstanceName: "swagger",

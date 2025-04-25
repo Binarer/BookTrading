@@ -1,6 +1,6 @@
 basePath: /api/v1
 definitions:
-  domain.Book:
+  book.Book:
     properties:
       author:
         type: string
@@ -12,14 +12,33 @@ definitions:
         type: integer
       tags:
         items:
-          $ref: '#/definitions/domain.Tag'
+          $ref: '#/definitions/tag.Tag'
         type: array
       title:
         type: string
       updated_at:
         type: string
+      user_id:
+        type: integer
     type: object
-  domain.Tag:
+  http.AddTagsToBookRequest:
+    properties:
+      tag_ids:
+        example:
+        - 1
+        - 2
+        - 3
+        items:
+          type: integer
+        type: array
+    type: object
+  http.CreateTagRequest:
+    properties:
+      name:
+        example: fiction
+        type: string
+    type: object
+  tag.Tag:
     properties:
       created_at:
         type: string
@@ -30,14 +49,6 @@ definitions:
       updated_at:
         type: string
     type: object
-  http.AddTagsToBookRequest:
-    type: object
-  http.CreateTagRequest:
-    properties:
-      name:
-        example: fiction
-        type: string
-    type: object
 host: localhost:8080
 info:
   contact: {}
@@ -45,6 +56,28 @@ info:
   title: Book Trading API
   version: "1.0"
 paths:
+  /api/v1/books:
+    post:
+      consumes:
+      - application/json
+      description: Create a new book with the given details
+      parameters:
+      - description: Book details
+        in: body
+        name: book
+        required: true
+        schema:
+          $ref: '#/definitions/book.Book'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/book.Book'
+      summary: Create a new book
+      tags:
+      - books
   /api/v1/books/{id}/tags:
     post:
       consumes:
@@ -88,32 +121,10 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/domain.Tag'
+            $ref: '#/definitions/tag.Tag'
       summary: Create a new tag
       tags:
       - tags
-  /books:
-    post:
-      consumes:
-      - application/json
-      description: Create a new book with the given details
-      parameters:
-      - description: Book details
-        in: body
-        name: book
-        required: true
-        schema:
-          $ref: '#/definitions/domain.Book'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/domain.Book'
-      summary: Create a new book
-      tags:
-      - books
   /books/{id}:
     get:
       description: Get book information by ID
@@ -129,7 +140,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/domain.Book'
+            $ref: '#/definitions/book.Book'
       summary: Get book by ID
       tags:
       - books
@@ -152,7 +163,7 @@ paths:
           description: OK
           schema:
             items:
-              $ref: '#/definitions/domain.Book'
+              $ref: '#/definitions/book.Book'
             type: array
       summary: Search books by tags
       tags:
@@ -172,7 +183,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/domain.Tag'
+            $ref: '#/definitions/tag.Tag'
       summary: Get tag by ID
       tags:
       - tags
@@ -191,7 +202,7 @@ paths:
           description: OK
           schema:
             items:
-              $ref: '#/definitions/domain.Tag'
+              $ref: '#/definitions/tag.Tag'
             type: array
       summary: Get popular tags
       tags:

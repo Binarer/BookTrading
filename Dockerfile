@@ -13,7 +13,7 @@ COPY . .
 
 # Генерация Swagger документации с правильным хостом
 ENV SWAGGER_HOST=10.3.13.28:8000
-RUN swag init -g cmd/api/main.go -o docs
+RUN swag init -g cmd/main.go -o docs
 
 RUN CGO_ENABLED=0 GOOS=linux go build -o main ./cmd
 

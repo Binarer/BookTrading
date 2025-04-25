@@ -26,7 +26,7 @@ cd booktrading
 DB_HOST=localhost
 DB_PORT=3306
 DB_USER=root
-DB_PASSWORD=your_password
+DB_PASSWORD=password
 DB_NAME=booktrading
 ```
 
@@ -48,21 +48,12 @@ git clone https://github.com/yourusername/booktrading.git
 cd booktrading
 ```
 
-2. Создайте файл `.env` в корне проекта:
-```env
-DB_HOST=mysql
-DB_PORT=3306
-DB_USER=root
-DB_PASSWORD=your_password
-DB_NAME=booktrading
-```
-
-3. Запустите приложение:
+2. Запустите приложение:
 ```bash
 docker-compose up --build
 ```
 
-4. Для остановки:
+3. Для остановки:
 ```bash
 docker-compose down
 ```

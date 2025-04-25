@@ -22,7 +22,7 @@ type Config struct {
 // NewConfig создает новую конфигурацию приложения
 func NewConfig() (*Config, error) {
 	// Загрузка переменных окружения из .env файла
-	if err := godotenv.Load("./.env"); err != nil {
+	if err := godotenv.Load(); err != nil {
 		return nil, err
 	}
 

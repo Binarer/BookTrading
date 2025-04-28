@@ -16,6 +16,7 @@ type TagUsecase interface {
 	CreateTag(tag *tag.Tag) error
 	GetTagByID(id int64) (*tag.Tag, error)
 	GetTagByName(name string) (*tag.Tag, error)
+	GetAllTags() ([]*tag.Tag, error)
 	GetPopularTags(limit int) ([]*tag.Tag, error)
 	UpdateTag(id int64, dto *tag.UpdateTagDTO) (*tag.Tag, error)
 	DeleteTag(id int64) error
@@ -103,6 +104,29 @@ func (u *tagUsecase) GetTagByName(name string) (*tag.Tag, error) {
 	u.cache.Set(cacheKey, t, 5*time.Minute)
 
 	return t, nil
+}
+
+// GetAllTags получает список всех тегов
+func (u *tagUsecase) GetAllTags() ([]*tag.Tag, error) {
+	// Попытка получить теги из кеша
+	cacheKey := "all_tags"
+	if cached, found := u.cache.Get(cacheKey); found {
+		if tags, ok := cached.([]*tag.Tag); ok {
+			return tags, nil
+		}
+	}
+
+	// Получение тегов из репозитория
+	tags, err := u.tagRepo.GetAll()
+	if err != nil {
+		logger.Error("Failed to get tags from repository", err)
+		return nil, err
+	}
+
+	// Сохранение в кеш
+	u.cache.Set(cacheKey, tags, 5*time.Minute)
+
+	return tags, nil
 }
 
 // GetPopularTags получает список популярных тегов

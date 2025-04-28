@@ -115,4 +115,36 @@ func (r *tagRepository) Delete(id int64) error {
 	query := `DELETE FROM tags WHERE id = ?`
 	_, err := r.db.Exec(query, id)
 	return err
+}
+
+// GetAll получает список всех тегов
+func (r *tagRepository) GetAll() ([]*tag.Tag, error) {
+	query := `SELECT id, name, created_at, updated_at FROM tags ORDER BY name`
+
+	rows, err := r.db.Query(query)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var tags []*tag.Tag
+	for rows.Next() {
+		t := &tag.Tag{}
+		err := rows.Scan(
+			&t.ID,
+			&t.Name,
+			&t.CreatedAt,
+			&t.UpdatedAt,
+		)
+		if err != nil {
+			return nil, err
+		}
+		tags = append(tags, t)
+	}
+
+	if err = rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return tags, nil
 } 

@@ -70,4 +70,9 @@ type UpdateBookDTO struct {
 	Description string   `json:"description" validate:"omitempty,min=10,max=1000"`
 	StateID     int64    `json:"state_id" validate:"omitempty,min=1"`
 	Photos      []string `json:"photos" validate:"omitempty,min=1,max=5,dive,base64"`
+}
+
+// UpdateBookStateDTO represents the data needed to update the state of a book
+type UpdateBookStateDTO struct {
+	StateID int64 `json:"state_id" validate:"required,min=1"`
 } 

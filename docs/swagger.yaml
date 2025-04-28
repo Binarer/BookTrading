@@ -111,6 +111,14 @@ definitions:
         minLength: 3
         type: string
     type: object
+  book.UpdateBookStateDTO:
+    properties:
+      state_id:
+        minimum: 1
+        type: integer
+    required:
+    - state_id
+    type: object
   state.CreateStateDTO:
     properties:
       name:
@@ -264,6 +272,33 @@ paths:
       summary: Update a book
       tags:
       - books
+  /api/v1/books/{id}/state:
+    patch:
+      consumes:
+      - application/json
+      description: Update the state of a book
+      parameters:
+      - description: Book ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: New state
+        in: body
+        name: state
+        required: true
+        schema:
+          $ref: '#/definitions/book.UpdateBookStateDTO'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/book.Book'
+      summary: Update book state
+      tags:
+      - books
   /api/v1/books/{id}/tags:
     post:
       consumes:
@@ -411,6 +446,20 @@ paths:
       tags:
       - states
   /api/v1/tags:
+    get:
+      description: Get list of all tags
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/tag.Tag'
+            type: array
+      summary: Get all tags
+      tags:
+      - tags
     post:
       consumes:
       - application/json

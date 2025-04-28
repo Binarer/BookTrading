@@ -1,48 +1,42 @@
 package logger
 
 import (
+	"log"
 	"os"
-	"time"
-
-	"github.com/rs/zerolog"
-	"github.com/rs/zerolog/log"
 )
 
-// InitLogger инициализирует логгер с заданными настройками
-func InitLogger(level zerolog.Level, format string) {
-	// Настройка временной зоны для логов
-	zerolog.TimeFieldFormat = time.RFC3339
-	zerolog.SetGlobalLevel(level)
+var (
+	InfoLogger  *log.Logger
+	ErrorLogger *log.Logger
+)
 
-	// Настройка формата вывода
-	if format == "console" {
-		log.Logger = log.Output(zerolog.ConsoleWriter{Out: os.Stdout, TimeFormat: time.RFC3339})
-	} else {
-		log.Logger = log.Output(os.Stdout)
-	}
+// Init initializes the loggers
+func Init() {
+	InfoLogger = log.New(os.Stdout, "INFO: ", log.Ldate|log.Ltime|log.Lshortfile)
+	ErrorLogger = log.New(os.Stderr, "ERROR: ", log.Ldate|log.Ltime|log.Lshortfile)
 }
 
-// Info логирует информационное сообщение
-func Info(msg string, fields ...interface{}) {
-	log.Info().Fields(fields).Msg(msg)
+// Info logs an info message
+func Info(message string) {
+	InfoLogger.Println(message)
 }
 
-// Error логирует сообщение об ошибке
-func Error(msg string, err error, fields ...interface{}) {
-	log.Error().Err(err).Fields(fields).Msg(msg)
+// Error logs an error message
+func Error(message string, err error) {
+	ErrorLogger.Printf("%s: %v\n", message, err)
 }
 
 // Debug логирует отладочное сообщение
 func Debug(msg string, fields ...interface{}) {
-	log.Debug().Fields(fields).Msg(msg)
+	log.Printf("DEBUG: %s\n", msg)
 }
 
 // Warn логирует предупреждение
 func Warn(msg string, fields ...interface{}) {
-	log.Warn().Fields(fields).Msg(msg)
+	log.Printf("WARN: %s\n", msg)
 }
 
 // Fatal логирует фатальную ошибку и завершает программу
 func Fatal(msg string, err error, fields ...interface{}) {
-	log.Fatal().Err(err).Fields(fields).Msg(msg)
+	log.Fatalf("FATAL: %s: %v\n", msg, err)
 } 

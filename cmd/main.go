@@ -1,29 +1,16 @@
 package main
 
 import (
-	"booktrading/internal/pkg/cache"
-	"context"
-	"fmt"
-	"net/http"
-	"os"
-	"os/signal"
-	"syscall"
-	"time"
-
-	"github.com/go-chi/chi/v5"
-	"github.com/go-chi/cors"
-	_ "github.com/go-sql-driver/mysql"
-	"github.com/jmoiron/sqlx"
-
-	"github.com/rs/zerolog/log"
-
 	"booktrading/internal/config"
 	httpHandler "booktrading/internal/delivery/http"
-
+	"booktrading/internal/pkg/cache"
 	"booktrading/internal/pkg/logger"
-	"booktrading/internal/pkg/middleware"
 	"booktrading/internal/repository/mysql"
 	"booktrading/internal/usecase"
+	"github.com/go-chi/chi/v5"
+	"github.com/go-chi/chi/v5/middleware"
+	"net/http"
+	"time"
 )
 
 // @title Book Trading API
@@ -32,123 +19,52 @@ import (
 // @host localhost:8000
 // @BasePath /
 func main() {
-	// Инициализация конфигурации
+	// Инициализация логгера
+	logger.Init()
+
+	// Загрузка конфигурации
 	cfg, err := config.NewConfig()
 	if err != nil {
-		log.Fatal().Err(err).Msg("Failed to load configuration")
+		logger.Fatal("Failed to load config", err)
 	}
 
-	// Инициализация логгера
-	logger.InitLogger(cfg.Logging.Level, cfg.Logging.Format)
+	// Инициализация кеша
+	cache := cache.NewCache(5*time.Minute, 10*time.Minute)
 
-	// Инициализация кэша
-	localCache := cache.NewCache(cfg.Cache.TTL, cfg.Cache.CleanupInterval)
-
-	// Подключение к базе данных
-	db, err := sqlx.Connect("mysql", fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?parseTime=true",
-		cfg.Database.User,
-		cfg.Database.Password,
-		cfg.Database.Host,
-		cfg.Database.Port,
-		cfg.Database.DBName,
-	))
+	// Инициализация репозиториев
+	db, err := mysql.NewMySQLConnection(cfg.Database)
 	if err != nil {
-		log.Fatal().Err(err).Msg("Failed to connect to database")
+		logger.Fatal("Failed to connect to database", err)
 	}
 	defer db.Close()
 
-	// Инициализация репозиториев
-	tagRepo := mysql.NewTagRepository(db.DB)
-	bookRepo := mysql.NewBookRepository(db.DB)
-	stateRepo := mysql.NewStateRepository(db.DB)
+	bookRepo := mysql.NewBookRepository(db)
+	tagRepo := mysql.NewTagRepository(db)
+	stateRepo := mysql.NewStateRepository(db)
 
-	// Инициализация use cases
-	tagUsecase := usecase.NewTagUsecase(tagRepo, bookRepo, localCache)
-	bookUsecase := usecase.NewBookUsecase(bookRepo, tagRepo, localCache)
+	// Инициализация usecases
+	bookUsecase := usecase.NewBookUsecase(bookRepo, tagRepo, cache)
+	tagUsecase := usecase.NewTagUsecase(tagRepo, bookRepo, cache)
 	stateUsecase := usecase.NewStateUsecase(stateRepo)
 
 	// Инициализация HTTP обработчика
 	handler := httpHandler.NewHandler(tagUsecase, bookUsecase, stateUsecase)
 
-	// Настройка CORS
-	corsMiddleware := cors.New(cors.Options{
-		AllowedOrigins:   []string{cfg.CORS.AllowedOrigins},
-		AllowedMethods:   []string{cfg.CORS.AllowedMethods},
-		AllowedHeaders:   []string{cfg.CORS.AllowedHeaders},
-		ExposedHeaders:   []string{cfg.CORS.ExposedHeaders},
-		AllowCredentials: cfg.CORS.AllowCredentials,
-		MaxAge:           cfg.CORS.MaxAge,
-	})
-
-	// Создание роутера
+	// Инициализация роутера
 	r := chi.NewRouter()
-	r.Use(corsMiddleware.Handler)
-	r.Use(middleware.LoggerMiddleware)
+
+	// Middleware
+	r.Use(middleware.Logger)
+	r.Use(middleware.Recoverer)
+	r.Use(middleware.CleanPath)
+	r.Use(middleware.GetHead)
 
 	// Инициализация маршрутов
 	handler.InitRoutes(r)
 
-	// Создание HTTP сервера
-	srv := &http.Server{
-		Addr:         fmt.Sprintf("%s:%d", cfg.Server.Host, cfg.Server.Port),
-		Handler:      r,
-		ReadTimeout:  10 * time.Second,
-		WriteTimeout: 10 * time.Second,
-		IdleTimeout:  120 * time.Second,
+	// Запуск сервера
+	logger.Info("Server starting on port 8000")
+	if err := http.ListenAndServe(":8000", r); err != nil {
+		logger.Fatal("Failed to start server", err)
 	}
-
-	// Запуск сервера в горутине
-	go func() {
-		log.Info().Msgf("Starting server on %s", srv.Addr)
-		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			log.Fatal().Err(err).Msg("Server failed to start")
-		}
-	}()
-
-	// Ожидание сигнала завершения
-	quit := make(chan os.Signal, 1)
-	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
-	<-quit
-
-	// Graceful shutdown
-	log.Info().Msg("Shutting down server...")
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-	defer cancel()
-
-	if err := srv.Shutdown(ctx); err != nil {
-		log.Fatal().Err(err).Msg("Server forced to shutdown")
-	}
-
-	log.Info().Msg("Server exiting")
-}
-
-// loggerMiddleware логирует HTTP запросы
-func loggerMiddleware(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		start := time.Now()
-
-		// Создаем кастомный ResponseWriter для отслеживания статус-кода
-		ww := &responseWriter{ResponseWriter: w, statusCode: http.StatusOK}
-
-		next.ServeHTTP(ww, r)
-
-		duration := time.Since(start)
-		log.Info().
-			Str("method", r.Method).
-			Str("path", r.URL.Path).
-			Int("status", ww.statusCode).
-			Dur("duration", duration).
-			Msg("HTTP request")
-	})
-}
-
-// responseWriter кастомный ResponseWriter для отслеживания статус-кода
-type responseWriter struct {
-	http.ResponseWriter
-	statusCode int
-}
-
-func (rw *responseWriter) WriteHeader(code int) {
-	rw.statusCode = code
-	rw.ResponseWriter.WriteHeader(code)
 }

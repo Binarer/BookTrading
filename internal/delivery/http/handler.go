@@ -59,8 +59,10 @@ func (h *Handler) InitRoutes(r chi.Router) {
 		// Группа маршрутов для тегов
 		r.Route("/tags", func(r chi.Router) {
 			r.Post("/", h.createTag)
+			r.Get("/", h.getAllTags)
 			r.Get("/{id}", h.getTagByID)
 			r.Get("/popular", h.getPopularTags)
+			r.Delete("/{id}", h.deleteTag)
 		})
 
 		// Группа маршрутов для книг
@@ -70,6 +72,8 @@ func (h *Handler) InitRoutes(r chi.Router) {
 			r.Get("/search", h.searchBooksByTags)
 			r.Post("/{id}/tags", h.addTagsToBook)
 			r.Put("/{id}", h.updateBook)
+			r.Patch("/{id}/state", h.updateBookState)
+			r.Delete("/{id}", h.deleteBook)
 		})
 
 		// Группа маршрутов для состояний
@@ -518,4 +522,63 @@ func (h *Handler) deleteTag(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.WriteHeader(http.StatusNoContent)
+}
+
+// @Summary Get all tags
+// @Description Get list of all tags
+// @Tags tags
+// @Produce json
+// @Success 200 {array} tag.Tag
+// @Router /api/v1/tags [get]
+func (h *Handler) getAllTags(w http.ResponseWriter, r *http.Request) {
+	tags, err := h.tagUsecase.GetAllTags()
+	if err != nil {
+		logger.Error("Failed to get tags", err)
+		http.Error(w, "Failed to get tags", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(tags)
+}
+
+// @Summary Update book state
+// @Description Update the state of a book
+// @Tags books
+// @Accept json
+// @Produce json
+// @Param id path int true "Book ID"
+// @Param state body book.UpdateBookStateDTO true "New state"
+// @Success 200 {object} book.Book
+// @Router /api/v1/books/{id}/state [patch]
+func (h *Handler) updateBookState(w http.ResponseWriter, r *http.Request) {
+	id, err := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
+	if err != nil {
+		logger.Error("Invalid book ID", err)
+		http.Error(w, "Invalid book ID", http.StatusBadRequest)
+		return
+	}
+
+	var dto book.UpdateBookStateDTO
+	if err := json.NewDecoder(r.Body).Decode(&dto); err != nil {
+		logger.Error("Failed to decode request body", err)
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	if err := h.validate.Struct(dto); err != nil {
+		logger.Error("Validation failed", err)
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	updatedBook, err := h.bookUsecase.UpdateBookState(id, dto.StateID)
+	if err != nil {
+		logger.Error("Failed to update book state", err)
+		http.Error(w, "Failed to update book state", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(updatedBook)
 }

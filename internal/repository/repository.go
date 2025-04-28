@@ -18,10 +18,12 @@ type BookRepository interface {
 	Delete(id int64) error
 }
 
+// TagRepository defines the interface for tag repository operations
 type TagRepository interface {
 	Create(tag *tag.Tag) error
 	GetByID(id int64) (*tag.Tag, error)
 	GetByName(name string) (*tag.Tag, error)
+	GetAll() ([]*tag.Tag, error)
 	GetPopular(limit int) ([]*tag.Tag, error)
 	Update(tag *tag.Tag) error
 	Delete(id int64) error

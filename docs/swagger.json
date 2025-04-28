@@ -168,6 +168,47 @@
                 }
             }
         },
+        "/api/v1/books/{id}/state": {
+            "patch": {
+                "description": "Update the state of a book",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "books"
+                ],
+                "summary": "Update book state",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Book ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "New state",
+                        "name": "state",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/book.UpdateBookStateDTO"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/book.Book"
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/books/{id}/tags": {
             "post": {
                 "description": "Add multiple tags to a book",
@@ -354,6 +395,27 @@
             }
         },
         "/api/v1/tags": {
+            "get": {
+                "description": "Get list of all tags",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "tags"
+                ],
+                "summary": "Get all tags",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/tag.Tag"
+                            }
+                        }
+                    }
+                }
+            },
             "post": {
                 "description": "Create a new tag with the given name",
                 "consumes": [
@@ -594,6 +656,18 @@
                     "type": "string",
                     "maxLength": 100,
                     "minLength": 3
+                }
+            }
+        },
+        "book.UpdateBookStateDTO": {
+            "type": "object",
+            "required": [
+                "state_id"
+            ],
+            "properties": {
+                "state_id": {
+                    "type": "integer",
+                    "minimum": 1
                 }
             }
         },

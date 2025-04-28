@@ -6,236 +6,85 @@ API для системы обмена книгами с поддержкой т
 
 - Go 1.21
 - MySQL 8.0
-- Docker
+- Chi Router
 - Swagger
+- Docker
 
-## Установка и запуск
-
-### С помощью Docker
-
-1. Клонируйте репозиторий:
-```bash
-git clone https://github.com/yourusername/booktrading.git
-cd booktrading
-```
-
-2. Запустите приложение с помощью Docker Compose:
-```bash
-docker-compose up -d
-```
-
-Приложение будет доступно по адресу: http://localhost:8000
+## Установка
 
 ### Локальная установка
-
-1. Установите зависимости:
+1. Клонируйте репозиторий
+2. Установите зависимости:
 ```bash
 go mod download
 ```
-
-2. Создайте базу данных:
+3. Создайте базу данных MySQL
+4. Настройте переменные окружения (см. `.env.example`)
+5. Запустите миграции:
 ```bash
-mysql -u root -p < migrations/001_initial_schema.sql
+go run cmd/migrate/main.go
 ```
-
-3. Запустите приложение:
+6. Запустите приложение:
 ```bash
 go run cmd/main.go
 ```
 
+### Docker
+1. Клонируйте репозиторий
+2. Соберите и запустите контейнеры:
+```bash
+docker-compose up --build
+```
+Приложение будет доступно по адресу: http://localhost:8000
+
 ## API Endpoints
 
-### Теги
-
-#### Создать тег
-```http
-POST /api/v1/tags
-Content-Type: application/json
-
-{
-    "name": "fiction"
-}
-```
-
-Ответ:
-```json
-{
-    "id": 1,
-    "name": "fiction",
-    "created_at": "2025-04-28T12:00:00Z",
-    "updated_at": "2025-04-28T12:00:00Z"
-}
-```
-
-#### Получить тег по ID
-```http
-GET /api/v1/tags/{id}
-```
-
-Ответ:
-```json
-{
-    "id": 1,
-    "name": "fiction",
-    "created_at": "2025-04-28T12:00:00Z",
-    "updated_at": "2025-04-28T12:00:00Z"
-}
-```
-
-#### Получить популярные теги
-```http
-GET /api/v1/tags/popular?limit=10
-```
-
-Ответ:
-```json
-[
-    {
-        "id": 1,
-        "name": "fiction",
-        "created_at": "2025-04-28T12:00:00Z",
-        "updated_at": "2025-04-28T12:00:00Z"
-    }
-]
-```
-
 ### Книги
+- `POST /api/v1/books` - Создание книги
+- `GET /api/v1/books/{id}` - Получение книги по ID
+- `GET /api/v1/books/search` - Поиск книг по тегам
+- `POST /api/v1/books/{id}/tags` - Добавление тегов к книге
+- `PUT /api/v1/books/{id}` - Обновление книги
+- `PATCH /api/v1/books/{id}/state` - Обновление состояния книги
+- `DELETE /api/v1/books/{id}` - Удаление книги
 
-#### Создать книгу
-```http
-POST /api/v1/books
-Content-Type: application/json
+### Теги
+- `POST /api/v1/tags` - Создание тега
+- `GET /api/v1/tags` - Получение всех тегов
+- `GET /api/v1/tags/{id}` - Получение тега по ID
+- `GET /api/v1/tags/popular` - Получение популярных тегов
+- `DELETE /api/v1/tags/{id}` - Удаление тега
 
-{
-    "title": "The Great Gatsby",
-    "author": "F. Scott Fitzgerald",
-    "description": "A story of the fabulously wealthy Jay Gatsby and his love for the beautiful Daisy Buchanan.",
-    "state": "available",
-    "photos": ["data:image/jpeg;base64,/9j/4AAQSkZJRg..."],
-    "tag_ids": [1, 2]
-}
+### Состояния
+- `POST /api/v1/states` - Создание состояния
+- `GET /api/v1/states` - Получение всех состояний
+- `GET /api/v1/states/{id}` - Получение состояния по ID
+- `PUT /api/v1/states/{id}` - Обновление состояния
+- `DELETE /api/v1/states/{id}` - Удаление состояния
+
+## Миграции
+Миграции запускаются автоматически при старте Docker-контейнеров. Для ручного запуска:
+```bash
+go run cmd/migrate/main.go
 ```
 
-Ответ:
-```json
-{
-    "id": 1,
-    "title": "The Great Gatsby",
-    "author": "F. Scott Fitzgerald",
-    "description": "A story of the fabulously wealthy Jay Gatsby and his love for the beautiful Daisy Buchanan.",
-    "state": "available",
-    "photos": ["data:image/jpeg;base64,/9j/4AAQSkZJRg..."],
-    "created_at": "2025-04-28T12:00:00Z",
-    "updated_at": "2025-04-28T12:00:00Z",
-    "tags": [
-        {
-            "id": 1,
-            "name": "fiction",
-            "created_at": "2025-04-28T12:00:00Z",
-            "updated_at": "2025-04-28T12:00:00Z"
-        }
-    ]
-}
+## Swagger
+Документация API доступна по адресу: http://localhost:8000/swagger/index.html
+
+Для обновления документации:
+```bash
+swag init -g cmd/main.go -o docs
 ```
 
-#### Получить книгу по ID
-```http
-GET /api/v1/books/{id}
+## Настройка Swagger
+Для локальной разработки:
+```bash
+swag init -g cmd/main.go -o docs --host localhost:8000
 ```
 
-Ответ:
-```json
-{
-    "id": 1,
-    "title": "The Great Gatsby",
-    "author": "F. Scott Fitzgerald",
-    "description": "A story of the fabulously wealthy Jay Gatsby and his love for the beautiful Daisy Buchanan.",
-    "state": "available",
-    "photos": ["data:image/jpeg;base64,/9j/4AAQSkZJRg..."],
-    "created_at": "2025-04-28T12:00:00Z",
-    "updated_at": "2025-04-28T12:00:00Z",
-    "tags": [
-        {
-            "id": 1,
-            "name": "fiction",
-            "created_at": "2025-04-28T12:00:00Z",
-            "updated_at": "2025-04-28T12:00:00Z"
-        }
-    ]
-}
-```
-
-#### Поиск книг по тегам
-```http
-GET /api/v1/books/search?tag_id=1&tag_id=2
-```
-
-Ответ:
-```json
-[
-    {
-        "id": 1,
-        "title": "The Great Gatsby",
-        "author": "F. Scott Fitzgerald",
-        "description": "A story of the fabulously wealthy Jay Gatsby and his love for the beautiful Daisy Buchanan.",
-        "state": "available",
-        "photos": ["data:image/jpeg;base64,/9j/4AAQSkZJRg..."],
-        "created_at": "2025-04-28T12:00:00Z",
-        "updated_at": "2025-04-28T12:00:00Z",
-        "tags": [
-            {
-                "id": 1,
-                "name": "fiction",
-                "created_at": "2025-04-28T12:00:00Z",
-                "updated_at": "2025-04-28T12:00:00Z"
-            }
-        ]
-    }
-]
-```
-
-#### Добавить теги к книге
-```http
-POST /api/v1/books/{id}/tags
-Content-Type: application/json
-
-[1, 2]
-```
-
-#### Обновить книгу
-```http
-PUT /api/v1/books/{id}
-Content-Type: application/json
-
-{
-    "title": "The Great Gatsby",
-    "author": "F. Scott Fitzgerald",
-    "description": "A story of the fabulously wealthy Jay Gatsby and his love for the beautiful Daisy Buchanan.",
-    "state": "trading",
-    "photos": ["data:image/jpeg;base64,/9j/4AAQSkZJRg..."]
-}
-```
-
-Ответ:
-```json
-{
-    "id": 1,
-    "title": "The Great Gatsby",
-    "author": "F. Scott Fitzgerald",
-    "description": "A story of the fabulously wealthy Jay Gatsby and his love for the beautiful Daisy Buchanan.",
-    "state": "trading",
-    "photos": ["data:image/jpeg;base64,/9j/4AAQSkZJRg..."],
-    "created_at": "2025-04-28T12:00:00Z",
-    "updated_at": "2025-04-28T12:00:00Z",
-    "tags": [
-        {
-            "id": 1,
-            "name": "fiction",
-            "created_at": "2025-04-28T12:00:00Z",
-            "updated_at": "2025-04-28T12:00:00Z"
-        }
-    ]
-}
+Для продакшена:
+```bash
+swag init -g cmd/main.go -o docs --host your-domain.com
 ```
 
 ## Состояния книг

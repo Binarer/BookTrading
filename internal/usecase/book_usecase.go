@@ -17,6 +17,7 @@ type BookUsecase interface {
 	GetBooksByTags(tagIDs []int64) ([]*book.Book, error)
 	AddTagsToBook(bookID int64, tagIDs []int64) error
 	UpdateBook(id int64, dto *book.UpdateBookDTO) (*book.Book, error)
+	UpdateBookState(id int64, stateID int64) (*book.Book, error)
 	DeleteBook(id int64) error
 }
 
@@ -166,6 +167,29 @@ func (u *bookUsecase) UpdateBook(id int64, dto *book.UpdateBookDTO) (*book.Book,
 	if len(dto.Photos) > 0 {
 		existingBook.Photos = dto.Photos
 	}
+
+	// Обновляем в репозитории
+	if err := u.bookRepo.Update(existingBook); err != nil {
+		return nil, err
+	}
+
+	// Инвалидация кеша
+	u.cache.Delete(fmt.Sprintf("book:%d", id))
+	u.cache.Delete("books")
+
+	return existingBook, nil
+}
+
+// UpdateBookState обновляет состояние книги
+func (u *bookUsecase) UpdateBookState(id int64, stateID int64) (*book.Book, error) {
+	// Получаем существующую книгу
+	existingBook, err := u.GetBookByID(id)
+	if err != nil {
+		return nil, err
+	}
+
+	// Обновляем состояние
+	existingBook.StateID = stateID
 
 	// Обновляем в репозитории
 	if err := u.bookRepo.Update(existingBook); err != nil {

@@ -40,7 +40,12 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    command: sh -c "go run cmd/migrate/main.go"
+    command: >
+      sh -c "
+        echo 'Waiting for MySQL to be ready...' &&
+        sleep 10 &&
+        go run cmd/migrate/main.go
+      "
     volumes:
       - ./migrations:/app/migrations
     environment:

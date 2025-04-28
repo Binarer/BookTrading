@@ -2,7 +2,6 @@ package gorm
 
 import (
 	"time"
-	"gorm.io/gorm"
 )
 
 // DeletedAt представляет время удаления записи

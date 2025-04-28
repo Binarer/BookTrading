@@ -17,7 +17,7 @@ import (
 // @title Book Trading API
 // @version 1.0
 // @description API for book trading system with tag support
-// @host localhost:8000
+// @host 10.3.13.28:8000
 // @BasePath /
 func main() {
 	// Инициализация логгера

@@ -17,12 +17,17 @@ RUN swag init -g cmd/main.go -o docs
 
 RUN CGO_ENABLED=0 GOOS=linux go build -o main ./cmd
 
-FROM alpine:latest
+FROM golang:1.21-alpine
 
 WORKDIR /app
 
 COPY --from=builder /app/main .
 COPY --from=builder /app/docs ./docs
+COPY --from=builder /app/go.mod .
+COPY --from=builder /app/go.sum .
+COPY --from=builder /app/cmd ./cmd
+COPY --from=builder /app/internal ./internal
+COPY --from=builder /app/migrations ./migrations
 
 EXPOSE 8000
 

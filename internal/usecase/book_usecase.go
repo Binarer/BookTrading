@@ -12,10 +12,11 @@ import (
 
 // BookUsecase определяет интерфейс для работы с книгами
 type BookUsecase interface {
-	CreateBook(book *book.Book) error
+	CreateBook(book *book.Book, tagIDs []int64) error
 	GetBookByID(id int64) (*book.Book, error)
 	GetBooksByTags(tagIDs []int64) ([]*book.Book, error)
 	AddTagsToBook(bookID int64, tagIDs []int64) error
+	UpdateBook(id int64, dto *book.UpdateBookDTO) (*book.Book, error)
 }
 
 // bookUsecase реализует интерфейс BookUsecase
@@ -39,19 +40,26 @@ func NewBookUsecase(bookRepo repository.BookRepository, tagRepo repository.TagRe
 }
 
 // CreateBook создает новую книгу
-func (u *bookUsecase) CreateBook(book *book.Book) error {
-	// Создаем книгу через доменный сервис
-	newBook := u.bookSvc.CreateBook(book.Title, book.Author, book.Description)
+func (u *bookUsecase) CreateBook(book *book.Book, tagIDs []int64) error {
+	// Устанавливаем состояние по умолчанию
+	if book.State == "" {
+		book.State = "available"
+	}
 
 	// Сохраняем в репозиторий
-	if err := u.bookRepo.Create(newBook); err != nil {
+	if err := u.bookRepo.Create(book); err != nil {
 		return err
 	}
 
-	// Копируем ID в исходный объект
-	book.ID = newBook.ID
-	book.CreatedAt = newBook.CreatedAt
-	book.UpdatedAt = newBook.UpdatedAt
+	// Добавляем теги, если они указаны
+	if len(tagIDs) > 0 {
+		if err := u.bookRepo.AddTags(book.ID, tagIDs); err != nil {
+			return err
+		}
+	}
+
+	// Инвалидация кеша
+	u.cache.Delete("books")
 
 	return nil
 }
@@ -128,6 +136,44 @@ func (u *bookUsecase) AddTagsToBook(bookID int64, tagIDs []int64) error {
 
 	// Инвалидация кеша
 	u.cache.Delete(fmt.Sprintf("book:%d", bookID))
+	u.cache.Delete("books")
 
 	return nil
+}
+
+// UpdateBook обновляет существующую книгу
+func (u *bookUsecase) UpdateBook(id int64, dto *book.UpdateBookDTO) (*book.Book, error) {
+	// Получаем существующую книгу
+	existingBook, err := u.GetBookByID(id)
+	if err != nil {
+		return nil, err
+	}
+
+	// Обновляем поля
+	if dto.Title != "" {
+		existingBook.Title = dto.Title
+	}
+	if dto.Author != "" {
+		existingBook.Author = dto.Author
+	}
+	if dto.Description != "" {
+		existingBook.Description = dto.Description
+	}
+	if dto.State != "" {
+		existingBook.State = dto.State
+	}
+	if dto.Photos != nil {
+		existingBook.Photos = dto.Photos
+	}
+
+	// Обновляем в репозитории
+	if err := u.bookRepo.Update(existingBook); err != nil {
+		return nil, err
+	}
+
+	// Инвалидация кеша
+	u.cache.Delete(fmt.Sprintf("book:%d", id))
+	u.cache.Delete("books")
+
+	return existingBook, nil
 } 

@@ -2,7 +2,9 @@ package http
 
 import (
 	"booktrading/internal/domain/book"
+	"booktrading/internal/domain/tag"
 	"booktrading/internal/pkg/logger"
+	"booktrading/internal/pkg/validator"
 	"booktrading/internal/usecase"
 	"encoding/json"
 	"net/http"
@@ -22,19 +24,9 @@ import (
 // @contact.email support@swagger.io
 // @license.name Apache 2.0
 // @license.url http://www.apache.org/licenses/LICENSE-2.0.html
-// @host 10.3.13.28:8000
-// @BasePath /api/v1
+// @host localhost:8000
+// @BasePath /
 // @schemes http
-
-// CreateTagRequest represents a request to create a new tag
-type CreateTagRequest struct {
-	Name string `json:"name" example:"fiction"`
-}
-
-// AddTagsToBookRequest represents a request to add tags to a book
-type AddTagsToBookRequest struct {
-	TagIDs []int64 `json:"tag_ids" example:"1,2,3"`
-}
 
 // Handler представляет HTTP обработчик
 type Handler struct {
@@ -57,19 +49,23 @@ func (h *Handler) InitRoutes(r chi.Router) {
 		swagger.URL("/swagger/doc.json"), // Путь к swagger.json
 	))
 
-	// Группа маршрутов для тегов
-	r.Route("/api/v1/tags", func(r chi.Router) {
-		r.Post("/", h.createTag)
-		r.Get("/{id}", h.getTagByID)
-		r.Get("/popular", h.getPopularTags)
-	})
+	// API маршруты
+	r.Route("/api/v1", func(r chi.Router) {
+		// Группа маршрутов для тегов
+		r.Route("/tags", func(r chi.Router) {
+			r.Post("/", h.createTag)
+			r.Get("/{id}", h.getTagByID)
+			r.Get("/popular", h.getPopularTags)
+		})
 
-	// Группа маршрутов для книг
-	r.Route("/api/v1/books", func(r chi.Router) {
-		r.Post("/", h.createBook)
-		r.Get("/{id}", h.getBookByID)
-		r.Get("/search", h.searchBooksByTags)
-		r.Post("/{id}/tags", h.addTagsToBook)
+		// Группа маршрутов для книг
+		r.Route("/books", func(r chi.Router) {
+			r.Post("/", h.createBook)
+			r.Get("/{id}", h.getBookByID)
+			r.Get("/search", h.searchBooksByTags)
+			r.Post("/{id}/tags", h.addTagsToBook)
+			r.Put("/{id}", h.updateBook)
+		})
 	})
 }
 
@@ -78,27 +74,38 @@ func (h *Handler) InitRoutes(r chi.Router) {
 // @Tags tags
 // @Accept json
 // @Produce json
-// @Param tag body CreateTagRequest true "Tag name"
+// @Param tag body tag.CreateTagDTO true "Tag details"
 // @Success 200 {object} tag.Tag
 // @Router /api/v1/tags [post]
 func (h *Handler) createTag(w http.ResponseWriter, r *http.Request) {
-	var request CreateTagRequest
-
-	if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
+	var dto tag.CreateTagDTO
+	if err := json.NewDecoder(r.Body).Decode(&dto); err != nil {
 		logger.Error("Failed to decode request body", err)
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
 		return
 	}
 
-	tag, err := h.tagUsecase.CreateTag(request.Name)
-	if err != nil {
+	// Validate the DTO
+	if err := validator.ValidateStruct(dto); err != nil {
+		logger.Error("Validation failed", err)
+		http.Error(w, "Validation failed: "+err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	// Create new tag
+	newTag := &tag.Tag{
+		Name: dto.Name,
+	}
+
+	// Save tag
+	if err := h.tagUsecase.CreateTag(newTag); err != nil {
 		logger.Error("Failed to create tag", err)
 		http.Error(w, "Failed to create tag", http.StatusInternalServerError)
 		return
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(tag)
+	json.NewEncoder(w).Encode(newTag)
 }
 
 // @Summary Get tag by ID
@@ -107,7 +114,7 @@ func (h *Handler) createTag(w http.ResponseWriter, r *http.Request) {
 // @Produce json
 // @Param id path int true "Tag ID"
 // @Success 200 {object} tag.Tag
-// @Router /tags/{id} [get]
+// @Router /api/v1/tags/{id} [get]
 func (h *Handler) getTagByID(w http.ResponseWriter, r *http.Request) {
 	id, err := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
 	if err != nil {
@@ -133,7 +140,7 @@ func (h *Handler) getTagByID(w http.ResponseWriter, r *http.Request) {
 // @Produce json
 // @Param limit query int false "Number of tags to return"
 // @Success 200 {array} tag.Tag
-// @Router /tags/popular [get]
+// @Router /api/v1/tags/popular [get]
 func (h *Handler) getPopularTags(w http.ResponseWriter, r *http.Request) {
 	limit := 10 // Значение по умолчанию
 	if limitStr := r.URL.Query().Get("limit"); limitStr != "" {
@@ -158,25 +165,86 @@ func (h *Handler) getPopularTags(w http.ResponseWriter, r *http.Request) {
 // @Tags books
 // @Accept json
 // @Produce json
-// @Param book body book.Book true "Book details"
+// @Param book body book.CreateBookDTO true "Book details"
 // @Success 200 {object} book.Book
 // @Router /api/v1/books [post]
 func (h *Handler) createBook(w http.ResponseWriter, r *http.Request) {
-	var book book.Book
-	if err := json.NewDecoder(r.Body).Decode(&book); err != nil {
+	var dto book.CreateBookDTO
+	if err := json.NewDecoder(r.Body).Decode(&dto); err != nil {
 		logger.Error("Failed to decode request body", err)
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
 		return
 	}
 
-	if err := h.bookUsecase.CreateBook(&book); err != nil {
+	// Validate the DTO
+	if err := validator.ValidateStruct(dto); err != nil {
+		logger.Error("Validation failed", err)
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	// Create new book
+	newBook := &book.Book{
+		Title:       dto.Title,
+		Author:      dto.Author,
+		Description: dto.Description,
+		State:       dto.State,
+		Photos:      dto.Photos,
+	}
+
+	// Create book through usecase
+	if err := h.bookUsecase.CreateBook(newBook, dto.TagIDs); err != nil {
 		logger.Error("Failed to create book", err)
-		http.Error(w, "Failed to create book", http.StatusInternalServerError)
+		http.Error(w, "Failed to create book: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	// Return created book
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(newBook)
+}
+
+// @Summary Update a book
+// @Description Update book details
+// @Tags books
+// @Accept json
+// @Produce json
+// @Param id path int true "Book ID"
+// @Param book body book.UpdateBookDTO true "Book details"
+// @Success 200 {object} book.Book
+// @Router /api/v1/books/{id} [put]
+func (h *Handler) updateBook(w http.ResponseWriter, r *http.Request) {
+	id, err := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
+	if err != nil {
+		logger.Error("Invalid book ID", err)
+		http.Error(w, "Invalid book ID", http.StatusBadRequest)
+		return
+	}
+
+	var dto book.UpdateBookDTO
+	if err := json.NewDecoder(r.Body).Decode(&dto); err != nil {
+		logger.Error("Failed to decode request body", err)
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	// Validate the DTO
+	if err := validator.ValidateStruct(dto); err != nil {
+		logger.Error("Validation failed", err)
+		http.Error(w, "Validation failed: "+err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	// Update book
+	updatedBook, err := h.bookUsecase.UpdateBook(id, &dto)
+	if err != nil {
+		logger.Error("Failed to update book", err)
+		http.Error(w, "Failed to update book", http.StatusInternalServerError)
 		return
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(book)
+	json.NewEncoder(w).Encode(updatedBook)
 }
 
 // @Summary Get book by ID
@@ -185,7 +253,7 @@ func (h *Handler) createBook(w http.ResponseWriter, r *http.Request) {
 // @Produce json
 // @Param id path int true "Book ID"
 // @Success 200 {object} book.Book
-// @Router /books/{id} [get]
+// @Router /api/v1/books/{id} [get]
 func (h *Handler) getBookByID(w http.ResponseWriter, r *http.Request) {
 	id, err := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
 	if err != nil {
@@ -211,7 +279,7 @@ func (h *Handler) getBookByID(w http.ResponseWriter, r *http.Request) {
 // @Produce json
 // @Param tag_id query []int true "Tag IDs"
 // @Success 200 {array} book.Book
-// @Router /books/search [get]
+// @Router /api/v1/books/search [get]
 func (h *Handler) searchBooksByTags(w http.ResponseWriter, r *http.Request) {
 	tagIDsStr := r.URL.Query()["tag_id"]
 	var tagIDs []int64
@@ -242,7 +310,7 @@ func (h *Handler) searchBooksByTags(w http.ResponseWriter, r *http.Request) {
 // @Accept json
 // @Produce json
 // @Param id path int true "Book ID"
-// @Param tags body AddTagsToBookRequest true "Tag IDs"
+// @Param tags body []int64 true "Tag IDs"
 // @Success 200
 // @Router /api/v1/books/{id}/tags [post]
 func (h *Handler) addTagsToBook(w http.ResponseWriter, r *http.Request) {
@@ -253,14 +321,14 @@ func (h *Handler) addTagsToBook(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var request AddTagsToBookRequest
-	if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
+	var tagIDs []int64
+	if err := json.NewDecoder(r.Body).Decode(&tagIDs); err != nil {
 		logger.Error("Failed to decode request body", err)
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
 		return
 	}
 
-	if err := h.bookUsecase.AddTagsToBook(bookID, request.TagIDs); err != nil {
+	if err := h.bookUsecase.AddTagsToBook(bookID, tagIDs); err != nil {
 		logger.Error("Failed to add tags to book", err)
 		http.Error(w, "Failed to add tags to book", http.StatusInternalServerError)
 		return

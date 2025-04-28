@@ -29,8 +29,8 @@ import (
 // @title Book Trading API
 // @version 1.0
 // @description API for book trading system with tag support
-// @host 10.3.13.28:8080
-// @BasePath /api/v1
+// @host localhost:8000
+// @BasePath /
 func main() {
 	// Инициализация конфигурации
 	cfg, err := config.NewConfig()

@@ -93,4 +93,19 @@ func (r *tagRepository) GetPopular(limit int) ([]*tag.Tag, error) {
 	}
 
 	return tags, nil
+}
+
+func (r *tagRepository) Update(t *tag.Tag) error {
+	query := `UPDATE tags 
+			  SET name = ?, updated_at = ?
+			  WHERE id = ?`
+
+	now := time.Now()
+	_, err := r.db.Exec(query, t.Name, now, t.ID)
+	if err != nil {
+		return err
+	}
+
+	t.UpdatedAt = now
+	return nil
 } 

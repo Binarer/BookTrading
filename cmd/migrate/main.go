@@ -6,7 +6,6 @@ import (
 	"database/sql"
 	"fmt"
 	"io/ioutil"
-	"os"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -16,17 +15,17 @@ import (
 
 func main() {
 	// Загрузка конфигурации
-	cfg, err := config.Load()
+	cfg, err := config.NewConfig()
 	if err != nil {
 		logger.Fatal("Failed to load config", err)
 	}
 
 	// Создание строки подключения к MySQL
 	dsn := fmt.Sprintf("%s:%s@tcp(%s:%d)/?parseTime=true",
-		cfg.DB.User,
-		cfg.DB.Password,
-		cfg.DB.Host,
-		cfg.DB.Port,
+		cfg.Database.User,
+		cfg.Database.Password,
+		cfg.Database.Host,
+		cfg.Database.Port,
 	)
 
 	// Подключение к MySQL
@@ -37,13 +36,13 @@ func main() {
 	defer db.Close()
 
 	// Создание базы данных, если она не существует
-	_, err = db.Exec(fmt.Sprintf("CREATE DATABASE IF NOT EXISTS %s", cfg.DB.Name))
+	_, err = db.Exec(fmt.Sprintf("CREATE DATABASE IF NOT EXISTS %s", cfg.Database.DBName))
 	if err != nil {
 		logger.Fatal("Failed to create database", err)
 	}
 
 	// Использование базы данных
-	_, err = db.Exec(fmt.Sprintf("USE %s", cfg.DB.Name))
+	_, err = db.Exec(fmt.Sprintf("USE %s", cfg.Database.DBName))
 	if err != nil {
 		logger.Fatal("Failed to use database", err)
 	}
@@ -85,10 +84,27 @@ func main() {
 			logger.Fatal(fmt.Sprintf("Failed to read migration file %s", migration.Name), err)
 		}
 
-		// Выполнение миграции
-		_, err = db.Exec(string(sqlBytes))
-		if err != nil {
-			logger.Fatal(fmt.Sprintf("Failed to apply migration %s", migration.Name), err)
+		// Разделение SQL файла на отдельные команды
+		sqlContent := string(sqlBytes)
+		// Заменяем Windows line endings на Unix
+		sqlContent = strings.ReplaceAll(sqlContent, "\r\n", "\n")
+
+		// Разделяем на отдельные команды по точке с запятой
+		commands := strings.Split(sqlContent, ";")
+
+		// Выполнение каждой команды отдельно
+		for _, cmd := range commands {
+			// Пропускаем пустые команды
+			cmd = strings.TrimSpace(cmd)
+			if cmd == "" {
+				continue
+			}
+
+			// Выполнение команды
+			_, err = db.Exec(cmd)
+			if err != nil {
+				logger.Fatal(fmt.Sprintf("Failed to apply command in migration %s: %s", migration.Name, cmd), err)
+			}
 		}
 
 		// Запись информации о примененной миграции
@@ -132,4 +148,4 @@ func getMigrations() ([]Migration, error) {
 	})
 
 	return migrations, nil
-} 
+}

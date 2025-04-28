@@ -13,6 +13,7 @@ type BookRepository interface {
 	GetByID(id int64) (*book.Book, error)
 	GetByTags(tagIDs []int64) ([]*book.Book, error)
 	AddTags(bookID int64, tagIDs []int64) error
+	Update(book *book.Book) error
 }
 
 type TagRepository interface {
@@ -20,6 +21,7 @@ type TagRepository interface {
 	GetByID(id int64) (*tag.Tag, error)
 	GetByName(name string) (*tag.Tag, error)
 	GetPopular(limit int) ([]*tag.Tag, error)
+	Update(tag *tag.Tag) error
 }
 
 func NewMySQLConnection(cfg *config.DatabaseConfig) (*sql.DB, error) {

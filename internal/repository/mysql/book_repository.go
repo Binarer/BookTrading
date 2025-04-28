@@ -2,8 +2,9 @@ package mysql
 
 import (
 	"booktrading/internal/domain/book"
+	"booktrading/internal/pkg/logger"
 	"database/sql"
-	"time"
+	"encoding/json"
 )
 
 type bookRepository struct {
@@ -15,36 +16,50 @@ func NewBookRepository(db *sql.DB) *bookRepository {
 }
 
 func (r *bookRepository) Create(b *book.Book) error {
-	query := `INSERT INTO books (title, author, description, user_id, created_at, updated_at) 
-			  VALUES (?, ?, ?, ?, ?, ?)`
-
-	now := time.Now()
-	result, err := r.db.Exec(query, b.Title, b.Author, b.Description, b.UserID, now, now)
+	photosJSON, err := json.Marshal(b.Photos)
 	if err != nil {
+		logger.Error("Failed to marshal photos to JSON", err)
+		return err
+	}
+
+	query := `
+		INSERT INTO books (title, author, description, state, photos)
+		VALUES (?, ?, ?, ?, ?)
+	`
+	result, err := r.db.Exec(query, b.Title, b.Author, b.Description, b.State, photosJSON)
+	if err != nil {
+		logger.Error("Failed to create book in database", err)
 		return err
 	}
 
 	id, err := result.LastInsertId()
 	if err != nil {
+		logger.Error("Failed to get last insert ID", err)
 		return err
 	}
-
 	b.ID = id
-	b.CreatedAt = now
-	b.UpdatedAt = now
+
 	return nil
 }
 
 func (r *bookRepository) GetByID(id int64) (*book.Book, error) {
-	query := `SELECT id, title, author, description, user_id, created_at, updated_at 
-			  FROM books WHERE id = ?`
-
+	query := `
+		SELECT id, title, author, description, state, photos, created_at, updated_at
+		FROM books
+		WHERE id = ?
+	`
 	b := &book.Book{}
+	var photosJSON []byte
 	err := r.db.QueryRow(query, id).Scan(
-		&b.ID, &b.Title, &b.Author, &b.Description, &b.UserID,
+		&b.ID, &b.Title, &b.Author, &b.Description, &b.State, &photosJSON,
 		&b.CreatedAt, &b.UpdatedAt,
 	)
 	if err != nil {
+		return nil, err
+	}
+
+	if err := json.Unmarshal(photosJSON, &b.Photos); err != nil {
+		logger.Error("Failed to unmarshal photos from JSON", err)
 		return nil, err
 	}
 
@@ -52,7 +67,7 @@ func (r *bookRepository) GetByID(id int64) (*book.Book, error) {
 }
 
 func (r *bookRepository) GetByTags(tagIDs []int64) ([]*book.Book, error) {
-	query := `SELECT DISTINCT b.id, b.title, b.author, b.description, b.user_id, b.created_at, b.updated_at
+	query := `SELECT DISTINCT b.id, b.title, b.author, b.description, b.state, b.photos, b.created_at, b.updated_at
 			  FROM books b
 			  JOIN book_tags bt ON b.id = bt.book_id
 			  WHERE bt.tag_id IN (?)`
@@ -67,7 +82,7 @@ func (r *bookRepository) GetByTags(tagIDs []int64) ([]*book.Book, error) {
 	for rows.Next() {
 		b := &book.Book{}
 		err := rows.Scan(
-			&b.ID, &b.Title, &b.Author, &b.Description, &b.UserID,
+			&b.ID, &b.Title, &b.Author, &b.Description, &b.State, &b.Photos,
 			&b.CreatedAt, &b.UpdatedAt,
 		)
 		if err != nil {
@@ -80,14 +95,32 @@ func (r *bookRepository) GetByTags(tagIDs []int64) ([]*book.Book, error) {
 }
 
 func (r *bookRepository) AddTags(bookID int64, tagIDs []int64) error {
-	query := `INSERT INTO book_tags (book_id, tag_id) VALUES (?, ?)`
-
+	query := `
+		INSERT INTO book_tags (book_id, tag_id)
+		VALUES (?, ?)
+	`
 	for _, tagID := range tagIDs {
 		_, err := r.db.Exec(query, bookID, tagID)
 		if err != nil {
+			logger.Error("Failed to add tag to book", err)
 			return err
 		}
 	}
-
 	return nil
+}
+
+func (r *bookRepository) Update(b *book.Book) error {
+	photosJSON, err := json.Marshal(b.Photos)
+	if err != nil {
+		logger.Error("Failed to marshal photos to JSON", err)
+		return err
+	}
+
+	query := `
+		UPDATE books
+		SET title = ?, author = ?, description = ?, state = ?, photos = ?
+		WHERE id = ?
+	`
+	_, err = r.db.Exec(query, b.Title, b.Author, b.Description, b.State, photosJSON, b.ID)
+	return err
 }

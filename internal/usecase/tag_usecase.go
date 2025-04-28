@@ -6,16 +6,18 @@ import (
 	"booktrading/internal/pkg/logger"
 	"booktrading/internal/repository"
 	_ "encoding/json"
+	"database/sql"
 	"fmt"
 	"time"
 )
 
 // TagUsecase определяет интерфейс для работы с тегами
 type TagUsecase interface {
-	CreateTag(name string) (*tag.Tag, error)
+	CreateTag(tag *tag.Tag) error
 	GetTagByID(id int64) (*tag.Tag, error)
 	GetTagByName(name string) (*tag.Tag, error)
 	GetPopularTags(limit int) ([]*tag.Tag, error)
+	UpdateTag(id int64, dto *tag.UpdateTagDTO) (*tag.Tag, error)
 }
 
 // tagUsecase реализует интерфейс TagUsecase
@@ -33,17 +35,25 @@ func NewTagUsecase(tagRepo repository.TagRepository, cache *cache.Cache) TagUsec
 }
 
 // CreateTag создает новый тег
-func (u *tagUsecase) CreateTag(name string) (*tag.Tag, error) {
-	t := &tag.Tag{Name: name}
-	if err := u.tagRepo.Create(t); err != nil {
-		logger.Error("Failed to create tag in repository", err)
-		return nil, err
+func (u *tagUsecase) CreateTag(tag *tag.Tag) error {
+	// Проверяем уникальность имени
+	existingTag, err := u.tagRepo.GetByName(tag.Name)
+	if err != nil && err != sql.ErrNoRows {
+		return err
+	}
+	if existingTag != nil {
+		return fmt.Errorf("tag name '%s' is not unique", tag.Name)
+	}
+
+	// Сохраняем в репозиторий
+	if err := u.tagRepo.Create(tag); err != nil {
+		return err
 	}
 
 	// Инвалидация кеша популярных тегов
 	u.cache.Delete("popular_tags")
 
-	return t, nil
+	return nil
 }
 
 // GetTagByID получает тег по ID
@@ -113,4 +123,36 @@ func (u *tagUsecase) GetPopularTags(limit int) ([]*tag.Tag, error) {
 	u.cache.Set(cacheKey, tags, 5*time.Minute)
 
 	return tags, nil
+}
+
+// UpdateTag обновляет существующий тег
+func (u *tagUsecase) UpdateTag(id int64, dto *tag.UpdateTagDTO) (*tag.Tag, error) {
+	// Получаем существующий тег
+	existingTag, err := u.GetTagByID(id)
+	if err != nil {
+		return nil, err
+	}
+
+	// Если имя изменилось, проверяем уникальность
+	if dto.Name != "" && dto.Name != existingTag.Name {
+		duplicateTag, err := u.tagRepo.GetByName(dto.Name)
+		if err != nil && err != sql.ErrNoRows {
+			return nil, err
+		}
+		if duplicateTag != nil {
+			return nil, fmt.Errorf("tag name '%s' is not unique", dto.Name)
+		}
+		existingTag.Name = dto.Name
+	}
+
+	// Обновляем в репозитории
+	if err := u.tagRepo.Update(existingTag); err != nil {
+		return nil, err
+	}
+
+	// Инвалидация кеша
+	u.cache.Delete(fmt.Sprintf("tag:%d", id))
+	u.cache.Delete(fmt.Sprintf("tag:name:%s", existingTag.Name))
+
+	return existingTag, nil
 }

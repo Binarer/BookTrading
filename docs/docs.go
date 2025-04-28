@@ -35,7 +35,111 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
+                            "$ref": "#/definitions/book.CreateBookDTO"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
                             "$ref": "#/definitions/book.Book"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/books/search": {
+            "get": {
+                "description": "Search books that have all specified tags",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "books"
+                ],
+                "summary": "Search books by tags",
+                "parameters": [
+                    {
+                        "type": "array",
+                        "items": {
+                            "type": "integer"
+                        },
+                        "collectionFormat": "csv",
+                        "description": "Tag IDs",
+                        "name": "tag_id",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/book.Book"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/books/{id}": {
+            "get": {
+                "description": "Get book information by ID",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "books"
+                ],
+                "summary": "Get book by ID",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Book ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/book.Book"
+                        }
+                    }
+                }
+            },
+            "put": {
+                "description": "Update book details",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "books"
+                ],
+                "summary": "Update a book",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Book ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Book details",
+                        "name": "book",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/book.UpdateBookDTO"
                         }
                     }
                 ],
@@ -76,7 +180,10 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/http.AddTagsToBookRequest"
+                            "type": "array",
+                            "items": {
+                                "type": "integer"
+                            }
                         }
                     }
                 ],
@@ -102,12 +209,12 @@ const docTemplate = `{
                 "summary": "Create a new tag",
                 "parameters": [
                     {
-                        "description": "Tag name",
+                        "description": "Tag details",
                         "name": "tag",
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/http.CreateTagRequest"
+                            "$ref": "#/definitions/tag.CreateTagDTO"
                         }
                     }
                 ],
@@ -121,72 +228,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/books/search": {
-            "get": {
-                "description": "Search books that have all specified tags",
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "books"
-                ],
-                "summary": "Search books by tags",
-                "parameters": [
-                    {
-                        "type": "array",
-                        "items": {
-                            "type": "integer"
-                        },
-                        "collectionFormat": "csv",
-                        "description": "Tag IDs",
-                        "name": "tag_id",
-                        "in": "query",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/book.Book"
-                            }
-                        }
-                    }
-                }
-            }
-        },
-        "/books/{id}": {
-            "get": {
-                "description": "Get book information by ID",
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "books"
-                ],
-                "summary": "Get book by ID",
-                "parameters": [
-                    {
-                        "type": "integer",
-                        "description": "Book ID",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/book.Book"
-                        }
-                    }
-                }
-            }
-        },
-        "/tags/popular": {
+        "/api/v1/tags/popular": {
             "get": {
                 "description": "Get list of popular tags",
                 "produces": [
@@ -217,7 +259,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/tags/{id}": {
+        "/api/v1/tags/{id}": {
             "get": {
                 "description": "Get tag information by ID",
                 "produces": [
@@ -249,75 +291,165 @@ const docTemplate = `{
     },
     "definitions": {
         "book.Book": {
+            "description": "Book model for the book trading system",
             "type": "object",
             "properties": {
                 "author": {
+                    "description": "@Description Author of the book\n@example F. Scott Fitzgerald",
                     "type": "string"
                 },
                 "created_at": {
+                    "description": "@Description When the book was added to the system\n@example 2025-04-28T12:00:00Z",
                     "type": "string"
                 },
                 "description": {
+                    "description": "@Description Description of the book\n@example A story of the fabulously wealthy Jay Gatsby and his love for the beautiful Daisy Buchanan.",
                     "type": "string"
                 },
                 "id": {
+                    "description": "@Description Unique identifier for the book\n@example 1",
                     "type": "integer"
                 },
+                "photos": {
+                    "description": "@Description List of base64 encoded photos of the book\n@example [\"data:image/jpeg;base64,/9j/4AAQSkZJRg...\"]",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "state": {
+                    "description": "@Description Current state of the book\n@example available",
+                    "type": "string"
+                },
                 "tags": {
+                    "description": "@Description List of tags associated with the book",
                     "type": "array",
                     "items": {
                         "$ref": "#/definitions/tag.Tag"
                     }
                 },
                 "title": {
+                    "description": "@Description Title of the book\n@example The Great Gatsby",
                     "type": "string"
                 },
                 "updated_at": {
+                    "description": "@Description When the book was last updated\n@example 2025-04-28T12:00:00Z",
                     "type": "string"
-                },
-                "user_id": {
-                    "type": "integer"
                 }
             }
         },
-        "http.AddTagsToBookRequest": {
+        "book.CreateBookDTO": {
             "type": "object",
+            "required": [
+                "author",
+                "description",
+                "state",
+                "title"
+            ],
             "properties": {
+                "author": {
+                    "type": "string",
+                    "maxLength": 255,
+                    "minLength": 1
+                },
+                "description": {
+                    "type": "string",
+                    "maxLength": 1000,
+                    "minLength": 1
+                },
+                "photos": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "state": {
+                    "type": "string",
+                    "enum": [
+                        "available",
+                        "trading",
+                        "traded"
+                    ]
+                },
                 "tag_ids": {
                     "type": "array",
                     "items": {
                         "type": "integer"
-                    },
-                    "example": [
-                        1,
-                        2,
-                        3
-                    ]
+                    }
+                },
+                "title": {
+                    "type": "string",
+                    "maxLength": 255,
+                    "minLength": 1
                 }
             }
         },
-        "http.CreateTagRequest": {
+        "book.UpdateBookDTO": {
             "type": "object",
             "properties": {
-                "name": {
+                "author": {
                     "type": "string",
-                    "example": "fiction"
+                    "maxLength": 255,
+                    "minLength": 1
+                },
+                "description": {
+                    "type": "string",
+                    "maxLength": 1000,
+                    "minLength": 1
+                },
+                "photos": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "state": {
+                    "type": "string",
+                    "enum": [
+                        "available",
+                        "trading",
+                        "traded"
+                    ]
+                },
+                "title": {
+                    "type": "string",
+                    "maxLength": 255,
+                    "minLength": 1
+                }
+            }
+        },
+        "tag.CreateTagDTO": {
+            "type": "object",
+            "required": [
+                "name"
+            ],
+            "properties": {
+                "name": {
+                    "description": "@Description Name of the tag\n@example fiction",
+                    "type": "string",
+                    "maxLength": 255,
+                    "minLength": 1
                 }
             }
         },
         "tag.Tag": {
+            "description": "Tag model for categorizing books",
             "type": "object",
             "properties": {
                 "created_at": {
+                    "description": "@Description When the tag was created\n@example 2025-04-28T12:00:00Z",
                     "type": "string"
                 },
                 "id": {
+                    "description": "@Description Unique identifier for the tag\n@example 1",
                     "type": "integer"
                 },
                 "name": {
+                    "description": "@Description Name of the tag\n@example fiction",
                     "type": "string"
                 },
                 "updated_at": {
+                    "description": "@Description When the tag was last updated\n@example 2025-04-28T12:00:00Z",
                     "type": "string"
                 }
             }
@@ -328,8 +460,8 @@ const docTemplate = `{
 // SwaggerInfo holds exported Swagger Info so clients can modify it
 var SwaggerInfo = &swag.Spec{
 	Version:          "1.0",
-	Host:             "localhost:8080",
-	BasePath:         "/api/v1",
+	Host:             "localhost:8000",
+	BasePath:         "/",
 	Schemes:          []string{},
 	Title:            "Book Trading API",
 	Description:      "API for book trading system with tag support",

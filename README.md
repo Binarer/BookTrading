@@ -1,113 +1,53 @@
 # Book Trading API
 
-Book Trading API - это RESTful API для системы обмена книгами с поддержкой тегов. API позволяет пользователям создавать книги, добавлять к ним теги, искать книги по тегам и управлять популярными тегами.
+API для системы обмена книгами с поддержкой тегов.
 
-## 🚀 Технологии
+## Технологии
 
-- **Go** - основной язык программирования
-- **MySQL** - база данных
-- **Chi** - легковесный роутер для Go
-- **Swagger** - документация API
-- **Cache** - кеширование для оптимизации производительности
-- **Docker** - контейнеризация приложения
+- Go 1.21
+- MySQL 8.0
+- Docker
+- Swagger
 
-## 🚀 Запуск проекта
+## Установка и запуск
+
+### С помощью Docker
+
+1. Клонируйте репозиторий:
+```bash
+git clone https://github.com/yourusername/booktrading.git
+cd booktrading
+```
+
+2. Запустите приложение с помощью Docker Compose:
+```bash
+docker-compose up -d
+```
+
+Приложение будет доступно по адресу: http://localhost:8000
 
 ### Локальная установка
 
-1. Клонируйте репозиторий:
+1. Установите зависимости:
 ```bash
-git clone https://github.com/yourusername/booktrading.git
-cd booktrading
+go mod download
 ```
 
-2. Создайте файл `.env` в корне проекта:
-```env
-DB_HOST=localhost
-DB_PORT=3306
-DB_USER=root
-DB_PASSWORD=password
-DB_NAME=booktrading
-```
-
-3. Запустите миграции:
+2. Создайте базу данных:
 ```bash
-go run cmd/migrate/main.go
+mysql -u root -p < migrations/001_initial_schema.sql
 ```
 
-4. Запустите сервер:
+3. Запустите приложение:
 ```bash
-go run cmd/api/main.go
+go run cmd/main.go
 ```
 
-### Docker Compose
-
-1. Клонируйте репозиторий:
-```bash
-git clone https://github.com/yourusername/booktrading.git
-cd booktrading
-```
-
-2. Запустите приложение:
-```bash
-docker-compose up --build
-```
-
-3. Для остановки:
-```bash
-docker-compose down
-```
-
-Сервер запустится на `http://localhost:8080`
-
-### Docker Compose файл
-
-```yaml
-version: '3.8'
-
-services:
-  app:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    ports:
-      - "8080:8080"
-    environment:
-      - DB_HOST=mysql
-      - DB_PORT=3306
-      - DB_USER=root
-      - DB_PASSWORD=root
-      - DB_NAME=booktrading
-    depends_on:
-      - mysql
-    networks:
-      - booktrading-network
-
-  mysql:
-    image: mysql:5.7
-    ports:
-      - "3306:3306"
-    environment:
-      - MYSQL_ROOT_PASSWORD=root
-      - MYSQL_DATABASE=booktrading
-    volumes:
-      - mysql-data:/var/lib/mysql
-    networks:
-      - booktrading-network
-
-networks:
-  booktrading-network:
-    driver: bridge
-
-volumes:
-  mysql-data:
-```
-
-## 📚 API Endpoints
+## API Endpoints
 
 ### Теги
 
-#### Создание тега
+#### Создать тег
 ```http
 POST /api/v1/tags
 Content-Type: application/json
@@ -117,19 +57,51 @@ Content-Type: application/json
 }
 ```
 
-#### Получение тега по ID
+Ответ:
+```json
+{
+    "id": 1,
+    "name": "fiction",
+    "created_at": "2025-04-28T12:00:00Z",
+    "updated_at": "2025-04-28T12:00:00Z"
+}
+```
+
+#### Получить тег по ID
 ```http
 GET /api/v1/tags/{id}
 ```
 
-#### Получение популярных тегов
+Ответ:
+```json
+{
+    "id": 1,
+    "name": "fiction",
+    "created_at": "2025-04-28T12:00:00Z",
+    "updated_at": "2025-04-28T12:00:00Z"
+}
+```
+
+#### Получить популярные теги
 ```http
 GET /api/v1/tags/popular?limit=10
 ```
 
+Ответ:
+```json
+[
+    {
+        "id": 1,
+        "name": "fiction",
+        "created_at": "2025-04-28T12:00:00Z",
+        "updated_at": "2025-04-28T12:00:00Z"
+    }
+]
+```
+
 ### Книги
 
-#### Создание книги
+#### Создать книгу
 ```http
 POST /api/v1/books
 Content-Type: application/json
@@ -137,13 +109,60 @@ Content-Type: application/json
 {
     "title": "The Great Gatsby",
     "author": "F. Scott Fitzgerald",
-    "description": "A story of the fabulously wealthy Jay Gatsby and his love for the beautiful Daisy Buchanan."
+    "description": "A story of the fabulously wealthy Jay Gatsby and his love for the beautiful Daisy Buchanan.",
+    "state": "available",
+    "photos": ["data:image/jpeg;base64,/9j/4AAQSkZJRg..."],
+    "tag_ids": [1, 2]
 }
 ```
 
-#### Получение книги по ID
+Ответ:
+```json
+{
+    "id": 1,
+    "title": "The Great Gatsby",
+    "author": "F. Scott Fitzgerald",
+    "description": "A story of the fabulously wealthy Jay Gatsby and his love for the beautiful Daisy Buchanan.",
+    "state": "available",
+    "photos": ["data:image/jpeg;base64,/9j/4AAQSkZJRg..."],
+    "created_at": "2025-04-28T12:00:00Z",
+    "updated_at": "2025-04-28T12:00:00Z",
+    "tags": [
+        {
+            "id": 1,
+            "name": "fiction",
+            "created_at": "2025-04-28T12:00:00Z",
+            "updated_at": "2025-04-28T12:00:00Z"
+        }
+    ]
+}
+```
+
+#### Получить книгу по ID
 ```http
 GET /api/v1/books/{id}
+```
+
+Ответ:
+```json
+{
+    "id": 1,
+    "title": "The Great Gatsby",
+    "author": "F. Scott Fitzgerald",
+    "description": "A story of the fabulously wealthy Jay Gatsby and his love for the beautiful Daisy Buchanan.",
+    "state": "available",
+    "photos": ["data:image/jpeg;base64,/9j/4AAQSkZJRg..."],
+    "created_at": "2025-04-28T12:00:00Z",
+    "updated_at": "2025-04-28T12:00:00Z",
+    "tags": [
+        {
+            "id": 1,
+            "name": "fiction",
+            "created_at": "2025-04-28T12:00:00Z",
+            "updated_at": "2025-04-28T12:00:00Z"
+        }
+    ]
+}
 ```
 
 #### Поиск книг по тегам
@@ -151,54 +170,180 @@ GET /api/v1/books/{id}
 GET /api/v1/books/search?tag_id=1&tag_id=2
 ```
 
-#### Добавление тегов к книге
+Ответ:
+```json
+[
+    {
+        "id": 1,
+        "title": "The Great Gatsby",
+        "author": "F. Scott Fitzgerald",
+        "description": "A story of the fabulously wealthy Jay Gatsby and his love for the beautiful Daisy Buchanan.",
+        "state": "available",
+        "photos": ["data:image/jpeg;base64,/9j/4AAQSkZJRg..."],
+        "created_at": "2025-04-28T12:00:00Z",
+        "updated_at": "2025-04-28T12:00:00Z",
+        "tags": [
+            {
+                "id": 1,
+                "name": "fiction",
+                "created_at": "2025-04-28T12:00:00Z",
+                "updated_at": "2025-04-28T12:00:00Z"
+            }
+        ]
+    }
+]
+```
+
+#### Добавить теги к книге
 ```http
 POST /api/v1/books/{id}/tags
 Content-Type: application/json
 
+[1, 2]
+```
+
+#### Обновить книгу
+```http
+PUT /api/v1/books/{id}
+Content-Type: application/json
+
 {
-    "tag_ids": [1, 2, 3]
+    "title": "The Great Gatsby",
+    "author": "F. Scott Fitzgerald",
+    "description": "A story of the fabulously wealthy Jay Gatsby and his love for the beautiful Daisy Buchanan.",
+    "state": "trading",
+    "photos": ["data:image/jpeg;base64,/9j/4AAQSkZJRg..."]
 }
 ```
 
-## 📖 Документация API
-
-Документация API доступна через Swagger UI:
-```http
-GET /swagger/
+Ответ:
+```json
+{
+    "id": 1,
+    "title": "The Great Gatsby",
+    "author": "F. Scott Fitzgerald",
+    "description": "A story of the fabulously wealthy Jay Gatsby and his love for the beautiful Daisy Buchanan.",
+    "state": "trading",
+    "photos": ["data:image/jpeg;base64,/9j/4AAQSkZJRg..."],
+    "created_at": "2025-04-28T12:00:00Z",
+    "updated_at": "2025-04-28T12:00:00Z",
+    "tags": [
+        {
+            "id": 1,
+            "name": "fiction",
+            "created_at": "2025-04-28T12:00:00Z",
+            "updated_at": "2025-04-28T12:00:00Z"
+        }
+    ]
+}
 ```
 
-## 🛠 Разработка
+## Состояния книг
 
-### Структура проекта
+- `available` - книга доступна для обмена
+- `trading` - книга находится в процессе обмена
+- `traded` - книга обменяна
 
-```
-booktrading/
-├── cmd/                    # Точки входа
-├── internal/              # Внутренний код
-│   ├── domain/           # Доменные модели
-│   ├── repository/       # Репозитории
-│   ├── usecase/         # Бизнес-логика
-│   ├── delivery/        # Доставка (HTTP, gRPC)
-│   └── pkg/             # Вспомогательные пакеты
-├── migrations/           # SQL миграции
-└── docs/                # Документация
-```
+## Миграции
 
-### Тестирование
+### Создание базы данных
 
+1. Подключитесь к MySQL:
 ```bash
-go test ./...
+mysql -u root -p
 ```
 
-## 📝 Лицензия
+2. Создайте базу данных:
+```sql
+CREATE DATABASE booktrading;
+USE booktrading;
+```
 
-MIT License
+3. Примените миграции:
+```bash
+mysql -u root -p booktrading < migrations/001_initial_schema.sql
+```
 
-## 🤝 Вклад в проект
+## Docker
 
-1. Fork репозитория
-2. Создайте ветку для вашей фичи (`git checkout -b feature/amazing-feature`)
-3. Сделайте коммит ваших изменений (`git commit -m 'Add some amazing feature'`)
-4. Запушьте в ветку (`git push origin feature/amazing-feature`)
-5. Откройте Pull Request 
+### docker-compose.yml
+
+```yaml
+version: '3.8'
+
+services:
+  app:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      - DB_HOST=mysql
+      - DB_PORT=3306
+      - DB_USER=root
+      - DB_PASSWORD=root
+      - DB_NAME=booktrading
+    depends_on:
+      - mysql
+
+  mysql:
+    image: mysql:8.0
+    ports:
+      - "3306:3306"
+    environment:
+      - MYSQL_ROOT_PASSWORD=root
+      - MYSQL_DATABASE=booktrading
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./migrations:/docker-entrypoint-initdb.d
+
+volumes:
+  mysql_data:
+```
+
+### Dockerfile
+
+```dockerfile
+FROM golang:1.21-alpine
+
+WORKDIR /app
+
+COPY go.mod go.sum ./
+RUN go mod download
+
+COPY . .
+
+RUN go build -o main ./cmd/main.go
+
+EXPOSE 8000
+
+CMD ["./main"]
+```
+
+## Swagger
+
+Документация API доступна по адресу: http://localhost:8000/swagger/index.html
+
+Для обновления Swagger документации:
+```bash
+swag init -g cmd/main.go
+```
+
+### Конфигурация хоста Swagger
+
+Для локальной разработки добавьте в файлы:
+- `cmd/main.go`
+- `internal/delivery/http/handler.go`
+
+```go
+// @host localhost:8000
+```
+
+Для продакшена (VM) добавьте:
+```go
+// @host 10.3.13.28:8000
+```
+
+После изменения хоста необходимо перегенерировать документацию:
+```bash
+swag init -g cmd/main.go
+``` 

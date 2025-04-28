@@ -5,10 +5,22 @@ import (
 	"gorm.io/gorm"
 )
 
-// Base contains common columns for all tables
+// Base содержит общие поля для всех таблиц
+// @Description Базовая структура для всех моделей
 type Base struct {
-	ID        uint           `gorm:"primarykey"`
-	CreatedAt time.Time
-	UpdatedAt time.Time
-	DeletedAt gorm.DeletedAt `gorm:"index"`
+	// @Description Уникальный идентификатор
+	// @example 1
+	ID        uint           `gorm:"primarykey" json:"id"`
+	
+	// @Description Время создания записи
+	// @example 2025-04-28T12:00:00Z
+	CreatedAt time.Time      `json:"created_at"`
+	
+	// @Description Время последнего обновления записи
+	// @example 2025-04-28T12:00:00Z
+	UpdatedAt time.Time      `json:"updated_at"`
+	
+	// @Description Время удаления записи (для мягкого удаления)
+	// @example 2025-04-28T12:00:00Z
+	DeletedAt gorm.DeletedAt `gorm:"index" json:"deleted_at,omitempty"`
 } 

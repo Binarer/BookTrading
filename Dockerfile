@@ -2,6 +2,9 @@ FROM golang:1.21-alpine AS builder
 
 WORKDIR /app
 
+# Установка необходимых зависимостей
+RUN apk add --no-cache gcc musl-dev
+
 COPY go.mod go.sum ./
 
 RUN go mod download
@@ -30,10 +33,6 @@ COPY --from=builder /app/go.mod .
 COPY --from=builder /app/go.sum .
 COPY --from=builder /app/cmd ./cmd
 COPY --from=builder /app/internal ./internal
-COPY --from=builder /app/migrations ./migrations
-COPY --from=builder /app/scripts ./scripts
-
-RUN chmod +x /app/scripts/wait-for-mysql.sh
 
 EXPOSE 8000
 

@@ -1,14 +1,14 @@
 package mysql
 
 import (
-	"booktrading/internal/config"
 	"database/sql"
 	"fmt"
 	_ "github.com/go-sql-driver/mysql"
+	"booktrading/internal/config"
 )
 
-// NewMySQLConnection создает новое подключение к MySQL
-func NewMySQLConnection(cfg *config.DatabaseConfig) (*sql.DB, error) {
+// NewConnection creates a new MySQL connection
+func NewConnection(cfg *config.DatabaseConfig) (*sql.DB, error) {
 	dsn := fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?parseTime=true",
 		cfg.User,
 		cfg.Password,
@@ -19,12 +19,11 @@ func NewMySQLConnection(cfg *config.DatabaseConfig) (*sql.DB, error) {
 
 	db, err := sql.Open("mysql", dsn)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to open database connection: %w", err)
 	}
 
-	// Проверяем подключение
 	if err := db.Ping(); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to ping database: %w", err)
 	}
 
 	return db, nil

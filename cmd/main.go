@@ -7,6 +7,7 @@ import (
 	"booktrading/internal/pkg/logger"
 	"booktrading/internal/repository/mysql"
 	"booktrading/internal/usecase"
+	"fmt"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"net/http"
@@ -32,7 +33,7 @@ func main() {
 	cache := cache.NewCache(5*time.Minute, 10*time.Minute)
 
 	// Инициализация репозиториев
-	db, err := mysql.NewMySQLConnection(cfg.Database)
+	db, err := mysql.NewConnection(cfg.Database)
 	if err != nil {
 		logger.Fatal("Failed to connect to database", err)
 	}
@@ -58,6 +59,7 @@ func main() {
 	r.Use(middleware.Recoverer)
 	r.Use(middleware.CleanPath)
 	r.Use(middleware.GetHead)
+	r.Use(loggerMiddleware)
 
 	// Инициализация маршрутов
 	handler.InitRoutes(r)
@@ -67,4 +69,35 @@ func main() {
 	if err := http.ListenAndServe(":8000", r); err != nil {
 		logger.Fatal("Failed to start server", err)
 	}
+}
+
+// loggerMiddleware логирует HTTP запросы
+func loggerMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		start := time.Now()
+
+		// Создаем кастомный ResponseWriter для отслеживания статус-кода
+		ww := &responseWriter{ResponseWriter: w, statusCode: http.StatusOK}
+
+		next.ServeHTTP(ww, r)
+
+		duration := time.Since(start)
+		logger.Info(fmt.Sprintf("HTTP request: method=%s path=%s status=%d duration=%v",
+			r.Method,
+			r.URL.Path,
+			ww.statusCode,
+			duration,
+		))
+	})
+}
+
+// responseWriter кастомный ResponseWriter для отслеживания статус-кода
+type responseWriter struct {
+	http.ResponseWriter
+	statusCode int
+}
+
+func (rw *responseWriter) WriteHeader(code int) {
+	rw.statusCode = code
+	rw.ResponseWriter.WriteHeader(code)
 }

@@ -30,11 +30,11 @@ definitions:
         items:
           type: string
         type: array
-      state:
+      state_id:
         description: |-
           @Description Current state of the book
           @example available
-        type: string
+        type: integer
       tags:
         description: '@Description List of tags associated with the book'
         items:
@@ -54,61 +54,91 @@ definitions:
   book.CreateBookDTO:
     properties:
       author:
-        maxLength: 255
-        minLength: 1
+        maxLength: 100
+        minLength: 3
         type: string
       description:
         maxLength: 1000
-        minLength: 1
+        minLength: 10
         type: string
       photos:
         items:
           type: string
+        maxItems: 5
+        minItems: 1
         type: array
-      state:
-        enum:
-        - available
-        - trading
-        - traded
-        type: string
+      state_id:
+        type: integer
       tag_ids:
         items:
           type: integer
+        maxItems: 5
+        minItems: 1
         type: array
       title:
-        maxLength: 255
-        minLength: 1
+        maxLength: 100
+        minLength: 3
         type: string
     required:
     - author
     - description
-    - state
+    - photos
+    - state_id
+    - tag_ids
     - title
     type: object
   book.UpdateBookDTO:
     properties:
       author:
-        maxLength: 255
-        minLength: 1
+        maxLength: 100
+        minLength: 3
         type: string
       description:
         maxLength: 1000
-        minLength: 1
+        minLength: 10
         type: string
       photos:
         items:
           type: string
+        maxItems: 5
+        minItems: 1
         type: array
-      state:
-        enum:
-        - available
-        - trading
-        - traded
-        type: string
+      state_id:
+        minimum: 1
+        type: integer
       title:
-        maxLength: 255
-        minLength: 1
+        maxLength: 100
+        minLength: 3
         type: string
+    type: object
+  state.CreateStateDTO:
+    properties:
+      name:
+        maxLength: 50
+        minLength: 3
+        type: string
+    required:
+    - name
+    type: object
+  state.State:
+    properties:
+      created_at:
+        type: string
+      id:
+        type: integer
+      name:
+        type: string
+      updated_at:
+        type: string
+    type: object
+  state.UpdateStateDTO:
+    properties:
+      name:
+        maxLength: 50
+        minLength: 3
+        type: string
+    required:
+    - name
     type: object
   tag.CreateTagDTO:
     properties:
@@ -176,6 +206,20 @@ paths:
       tags:
       - books
   /api/v1/books/{id}:
+    delete:
+      description: Delete a book
+      parameters:
+      - description: Book ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses:
+        "204":
+          description: No Content
+      summary: Delete book
+      tags:
+      - books
     get:
       description: Get book information by ID
       parameters:
@@ -271,6 +315,101 @@ paths:
       summary: Search books by tags
       tags:
       - books
+  /api/v1/states:
+    get:
+      description: Get list of all book states
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/state.State'
+            type: array
+      summary: Get all states
+      tags:
+      - states
+    post:
+      consumes:
+      - application/json
+      description: Create a new book state
+      parameters:
+      - description: State object
+        in: body
+        name: state
+        required: true
+        schema:
+          $ref: '#/definitions/state.CreateStateDTO'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/state.State'
+      summary: Create a new state
+      tags:
+      - states
+  /api/v1/states/{id}:
+    delete:
+      description: Delete a book state
+      parameters:
+      - description: State ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses:
+        "204":
+          description: No Content
+      summary: Delete state
+      tags:
+      - states
+    get:
+      description: Get a book state by ID
+      parameters:
+      - description: State ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/state.State'
+      summary: Get state by ID
+      tags:
+      - states
+    put:
+      consumes:
+      - application/json
+      description: Update a book state
+      parameters:
+      - description: State ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: State object
+        in: body
+        name: state
+        required: true
+        schema:
+          $ref: '#/definitions/state.UpdateStateDTO'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/state.State'
+      summary: Update state
+      tags:
+      - states
   /api/v1/tags:
     post:
       consumes:
@@ -294,6 +433,20 @@ paths:
       tags:
       - tags
   /api/v1/tags/{id}:
+    delete:
+      description: Delete a tag
+      parameters:
+      - description: Tag ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses:
+        "204":
+          description: No Content
+      summary: Delete tag
+      tags:
+      - tags
     get:
       description: Get tag information by ID
       parameters:

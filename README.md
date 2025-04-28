@@ -244,6 +244,99 @@ Content-Type: application/json
 - `trading` - книга находится в процессе обмена
 - `traded` - книга обменяна
 
+#### Создать состояние
+```http
+POST /api/v1/states
+Content-Type: application/json
+
+{
+    "name": "available"
+}
+```
+
+Ответ:
+```json
+{
+    "id": 1,
+    "name": "available",
+    "created_at": "2025-04-28T12:00:00Z",
+    "updated_at": "2025-04-28T12:00:00Z"
+}
+```
+
+#### Получить все состояния
+```http
+GET /api/v1/states
+```
+
+Ответ:
+```json
+[
+    {
+        "id": 1,
+        "name": "available",
+        "created_at": "2025-04-28T12:00:00Z",
+        "updated_at": "2025-04-28T12:00:00Z"
+    },
+    {
+        "id": 2,
+        "name": "trading",
+        "created_at": "2025-04-28T12:00:00Z",
+        "updated_at": "2025-04-28T12:00:00Z"
+    }
+]
+```
+
+#### Получить состояние по ID
+```http
+GET /api/v1/states/{id}
+```
+
+Ответ:
+```json
+{
+    "id": 1,
+    "name": "available",
+    "created_at": "2025-04-28T12:00:00Z",
+    "updated_at": "2025-04-28T12:00:00Z"
+}
+```
+
+#### Обновить состояние
+```http
+PUT /api/v1/states/{id}
+Content-Type: application/json
+
+{
+    "name": "traded"
+}
+```
+
+Ответ:
+```json
+{
+    "id": 1,
+    "name": "traded",
+    "created_at": "2025-04-28T12:00:00Z",
+    "updated_at": "2025-04-28T12:00:00Z"
+}
+```
+
+#### Удалить состояние
+```http
+DELETE /api/v1/states/{id}
+```
+
+#### Удалить книгу
+```http
+DELETE /api/v1/books/{id}
+```
+
+#### Удалить тег
+```http
+DELETE /api/v1/tags/{id}
+```
+
 ## Миграции
 
 ### Создание базы данных

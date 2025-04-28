@@ -17,6 +17,7 @@ type BookUsecase interface {
 	GetBooksByTags(tagIDs []int64) ([]*book.Book, error)
 	AddTagsToBook(bookID int64, tagIDs []int64) error
 	UpdateBook(id int64, dto *book.UpdateBookDTO) (*book.Book, error)
+	DeleteBook(id int64) error
 }
 
 // bookUsecase реализует интерфейс BookUsecase
@@ -42,8 +43,8 @@ func NewBookUsecase(bookRepo repository.BookRepository, tagRepo repository.TagRe
 // CreateBook создает новую книгу
 func (u *bookUsecase) CreateBook(book *book.Book, tagIDs []int64) error {
 	// Устанавливаем состояние по умолчанию
-	if book.State == "" {
-		book.State = "available"
+	if book.StateID == 0 {
+		book.StateID = 1 // Assuming 1 is the default state ID
 	}
 
 	// Сохраняем в репозиторий
@@ -159,10 +160,10 @@ func (u *bookUsecase) UpdateBook(id int64, dto *book.UpdateBookDTO) (*book.Book,
 	if dto.Description != "" {
 		existingBook.Description = dto.Description
 	}
-	if dto.State != "" {
-		existingBook.State = dto.State
+	if dto.StateID != 0 {
+		existingBook.StateID = dto.StateID
 	}
-	if dto.Photos != nil {
+	if len(dto.Photos) > 0 {
 		existingBook.Photos = dto.Photos
 	}
 
@@ -176,4 +177,9 @@ func (u *bookUsecase) UpdateBook(id int64, dto *book.UpdateBookDTO) (*book.Book,
 	u.cache.Delete("books")
 
 	return existingBook, nil
+}
+
+// DeleteBook удаляет книгу
+func (u *bookUsecase) DeleteBook(id int64) error {
+	return u.bookRepo.Delete(id)
 } 

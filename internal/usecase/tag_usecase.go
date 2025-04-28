@@ -18,19 +18,22 @@ type TagUsecase interface {
 	GetTagByName(name string) (*tag.Tag, error)
 	GetPopularTags(limit int) ([]*tag.Tag, error)
 	UpdateTag(id int64, dto *tag.UpdateTagDTO) (*tag.Tag, error)
+	DeleteTag(id int64) error
 }
 
 // tagUsecase реализует интерфейс TagUsecase
 type tagUsecase struct {
-	tagRepo repository.TagRepository
-	cache   *cache.Cache
+	tagRepo  repository.TagRepository
+	bookRepo repository.BookRepository
+	cache    *cache.Cache
 }
 
 // NewTagUsecase создает новый экземпляр tagUsecase
-func NewTagUsecase(tagRepo repository.TagRepository, cache *cache.Cache) TagUsecase {
+func NewTagUsecase(tagRepo repository.TagRepository, bookRepo repository.BookRepository, cache *cache.Cache) TagUsecase {
 	return &tagUsecase{
-		tagRepo: tagRepo,
-		cache:   cache,
+		tagRepo:  tagRepo,
+		bookRepo: bookRepo,
+		cache:    cache,
 	}
 }
 
@@ -155,4 +158,27 @@ func (u *tagUsecase) UpdateTag(id int64, dto *tag.UpdateTagDTO) (*tag.Tag, error
 	u.cache.Delete(fmt.Sprintf("tag:name:%s", existingTag.Name))
 
 	return existingTag, nil
+}
+
+// DeleteTag удаляет тег по ID
+func (u *tagUsecase) DeleteTag(id int64) error {
+	// Проверяем, используется ли тег в книгах
+	books, err := u.bookRepo.GetByTags([]int64{id})
+	if err != nil {
+		return err
+	}
+	if len(books) > 0 {
+		return fmt.Errorf("cannot delete tag: it is being used by books")
+	}
+
+	// Удаляем тег
+	if err := u.tagRepo.Delete(id); err != nil {
+		return err
+	}
+
+	// Инвалидация кеша
+	u.cache.Delete("tags")
+	u.cache.Delete(fmt.Sprintf("tag:%d", id))
+
+	return nil
 }

@@ -108,4 +108,11 @@ func (r *tagRepository) Update(t *tag.Tag) error {
 
 	t.UpdatedAt = now
 	return nil
+}
+
+// Delete удаляет тег по ID
+func (r *tagRepository) Delete(id int64) error {
+	query := `DELETE FROM tags WHERE id = ?`
+	_, err := r.db.Exec(query, id)
+	return err
 } 

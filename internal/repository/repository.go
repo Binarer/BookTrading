@@ -3,6 +3,7 @@ package repository
 import (
 	"booktrading/internal/config"
 	"booktrading/internal/domain/book"
+	"booktrading/internal/domain/state"
 	"booktrading/internal/domain/tag"
 	"database/sql"
 	"strconv"
@@ -14,6 +15,7 @@ type BookRepository interface {
 	GetByTags(tagIDs []int64) ([]*book.Book, error)
 	AddTags(bookID int64, tagIDs []int64) error
 	Update(book *book.Book) error
+	Delete(id int64) error
 }
 
 type TagRepository interface {
@@ -22,6 +24,15 @@ type TagRepository interface {
 	GetByName(name string) (*tag.Tag, error)
 	GetPopular(limit int) ([]*tag.Tag, error)
 	Update(tag *tag.Tag) error
+	Delete(id int64) error
+}
+
+type StateRepository interface {
+	Create(s *state.State) error
+	GetByID(id int64) (*state.State, error)
+	GetAll() ([]*state.State, error)
+	Update(s *state.State) error
+	Delete(id int64) error
 }
 
 func NewMySQLConnection(cfg *config.DatabaseConfig) (*sql.DB, error) {

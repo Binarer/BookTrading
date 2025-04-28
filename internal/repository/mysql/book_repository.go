@@ -23,10 +23,10 @@ func (r *bookRepository) Create(b *book.Book) error {
 	}
 
 	query := `
-		INSERT INTO books (title, author, description, state, photos)
+		INSERT INTO books (title, author, description, state_id, photos)
 		VALUES (?, ?, ?, ?, ?)
 	`
-	result, err := r.db.Exec(query, b.Title, b.Author, b.Description, b.State, photosJSON)
+	result, err := r.db.Exec(query, b.Title, b.Author, b.Description, b.StateID, photosJSON)
 	if err != nil {
 		logger.Error("Failed to create book in database", err)
 		return err
@@ -44,14 +44,14 @@ func (r *bookRepository) Create(b *book.Book) error {
 
 func (r *bookRepository) GetByID(id int64) (*book.Book, error) {
 	query := `
-		SELECT id, title, author, description, state, photos, created_at, updated_at
+		SELECT id, title, author, description, state_id, photos, created_at, updated_at
 		FROM books
 		WHERE id = ?
 	`
 	b := &book.Book{}
 	var photosJSON []byte
 	err := r.db.QueryRow(query, id).Scan(
-		&b.ID, &b.Title, &b.Author, &b.Description, &b.State, &photosJSON,
+		&b.ID, &b.Title, &b.Author, &b.Description, &b.StateID, &photosJSON,
 		&b.CreatedAt, &b.UpdatedAt,
 	)
 	if err != nil {
@@ -67,7 +67,7 @@ func (r *bookRepository) GetByID(id int64) (*book.Book, error) {
 }
 
 func (r *bookRepository) GetByTags(tagIDs []int64) ([]*book.Book, error) {
-	query := `SELECT DISTINCT b.id, b.title, b.author, b.description, b.state, b.photos, b.created_at, b.updated_at
+	query := `SELECT DISTINCT b.id, b.title, b.author, b.description, b.state_id, b.photos, b.created_at, b.updated_at
 			  FROM books b
 			  JOIN book_tags bt ON b.id = bt.book_id
 			  WHERE bt.tag_id IN (?)`
@@ -81,13 +81,20 @@ func (r *bookRepository) GetByTags(tagIDs []int64) ([]*book.Book, error) {
 	var books []*book.Book
 	for rows.Next() {
 		b := &book.Book{}
+		var photosJSON []byte
 		err := rows.Scan(
-			&b.ID, &b.Title, &b.Author, &b.Description, &b.State, &b.Photos,
+			&b.ID, &b.Title, &b.Author, &b.Description, &b.StateID, &photosJSON,
 			&b.CreatedAt, &b.UpdatedAt,
 		)
 		if err != nil {
 			return nil, err
 		}
+
+		if err := json.Unmarshal(photosJSON, &b.Photos); err != nil {
+			logger.Error("Failed to unmarshal photos from JSON", err)
+			return nil, err
+		}
+
 		books = append(books, b)
 	}
 
@@ -118,9 +125,18 @@ func (r *bookRepository) Update(b *book.Book) error {
 
 	query := `
 		UPDATE books
-		SET title = ?, author = ?, description = ?, state = ?, photos = ?
+		SET title = ?, author = ?, description = ?, state_id = ?, photos = ?
 		WHERE id = ?
 	`
-	_, err = r.db.Exec(query, b.Title, b.Author, b.Description, b.State, photosJSON, b.ID)
+	_, err = r.db.Exec(query, b.Title, b.Author, b.Description, b.StateID, photosJSON, b.ID)
+	return err
+}
+
+func (r *bookRepository) Delete(id int64) error {
+	query := `
+		DELETE FROM books
+		WHERE id = ?
+	`
+	_, err := r.db.Exec(query, id)
 	return err
 }

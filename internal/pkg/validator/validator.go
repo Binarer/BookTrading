@@ -4,40 +4,46 @@ import (
 	"booktrading/internal/domain/tag"
 	"encoding/base64"
 	"fmt"
-	"strings"
 
 	"github.com/go-playground/validator/v10"
 )
 
-var validate *validator.Validate
+// Validate wraps the go-playground/validator.Validate
+type Validate struct {
+	*validator.Validate
+}
 
-func init() {
-	validate = validator.New()
+// New creates a new validator instance
+func New() *Validate {
+	v := validator.New()
 	
 	// Register custom validation for base64
-	_ = validate.RegisterValidation("base64", func(fl validator.FieldLevel) bool {
+	_ = v.RegisterValidation("base64", func(fl validator.FieldLevel) bool {
 		value := fl.Field().String()
 		if value == "" {
-			return true
+			return true // Empty string is considered valid
 		}
-		
-		// Check if it's a data URL
-		if strings.HasPrefix(value, "data:") {
-			parts := strings.Split(value, ",")
-			if len(parts) != 2 {
-				return false
-			}
-			value = parts[1]
-		}
-		
 		_, err := base64.StdEncoding.DecodeString(value)
 		return err == nil
 	})
+
+	// Register custom validation for state
+	_ = v.RegisterValidation("state", func(fl validator.FieldLevel) bool {
+		value := fl.Field().String()
+		validStates := map[string]bool{
+			"available": true,
+			"trading":   true,
+			"traded":    true,
+		}
+		return validStates[value]
+	})
+
+	return &Validate{v}
 }
 
-// ValidateStruct validates a struct using the custom validator
-func ValidateStruct(s interface{}) error {
-	return validate.Struct(s)
+// ValidateStruct validates a struct using the validator
+func (v *Validate) ValidateStruct(s interface{}) error {
+	return v.Struct(s)
 }
 
 // ValidateTagName validates if a tag name is unique

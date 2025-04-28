@@ -151,6 +151,27 @@ const docTemplate = `{
                         }
                     }
                 }
+            },
+            "delete": {
+                "description": "Delete a book",
+                "tags": [
+                    "books"
+                ],
+                "summary": "Delete book",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Book ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    }
+                }
             }
         },
         "/api/v1/books/{id}/tags": {
@@ -190,6 +211,150 @@ const docTemplate = `{
                 "responses": {
                     "200": {
                         "description": "OK"
+                    }
+                }
+            }
+        },
+        "/api/v1/states": {
+            "get": {
+                "description": "Get list of all book states",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "states"
+                ],
+                "summary": "Get all states",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/state.State"
+                            }
+                        }
+                    }
+                }
+            },
+            "post": {
+                "description": "Create a new book state",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "states"
+                ],
+                "summary": "Create a new state",
+                "parameters": [
+                    {
+                        "description": "State object",
+                        "name": "state",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/state.CreateStateDTO"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/state.State"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/states/{id}": {
+            "get": {
+                "description": "Get a book state by ID",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "states"
+                ],
+                "summary": "Get state by ID",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "State ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/state.State"
+                        }
+                    }
+                }
+            },
+            "put": {
+                "description": "Update a book state",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "states"
+                ],
+                "summary": "Update state",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "State ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "State object",
+                        "name": "state",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/state.UpdateStateDTO"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/state.State"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "description": "Delete a book state",
+                "tags": [
+                    "states"
+                ],
+                "summary": "Delete state",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "State ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content"
                     }
                 }
             }
@@ -286,6 +451,27 @@ const docTemplate = `{
                         }
                     }
                 }
+            },
+            "delete": {
+                "description": "Delete a tag",
+                "tags": [
+                    "tags"
+                ],
+                "summary": "Delete tag",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Tag ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    }
+                }
             }
         }
     },
@@ -317,9 +503,9 @@ const docTemplate = `{
                         "type": "string"
                     }
                 },
-                "state": {
+                "state_id": {
                     "description": "@Description Current state of the book\n@example available",
-                    "type": "string"
+                    "type": "integer"
                 },
                 "tags": {
                     "description": "@Description List of tags associated with the book",
@@ -343,44 +529,45 @@ const docTemplate = `{
             "required": [
                 "author",
                 "description",
-                "state",
+                "photos",
+                "state_id",
+                "tag_ids",
                 "title"
             ],
             "properties": {
                 "author": {
                     "type": "string",
-                    "maxLength": 255,
-                    "minLength": 1
+                    "maxLength": 100,
+                    "minLength": 3
                 },
                 "description": {
                     "type": "string",
                     "maxLength": 1000,
-                    "minLength": 1
+                    "minLength": 10
                 },
                 "photos": {
                     "type": "array",
+                    "maxItems": 5,
+                    "minItems": 1,
                     "items": {
                         "type": "string"
                     }
                 },
-                "state": {
-                    "type": "string",
-                    "enum": [
-                        "available",
-                        "trading",
-                        "traded"
-                    ]
+                "state_id": {
+                    "type": "integer"
                 },
                 "tag_ids": {
                     "type": "array",
+                    "maxItems": 5,
+                    "minItems": 1,
                     "items": {
                         "type": "integer"
                     }
                 },
                 "title": {
                     "type": "string",
-                    "maxLength": 255,
-                    "minLength": 1
+                    "maxLength": 100,
+                    "minLength": 3
                 }
             }
         },
@@ -389,32 +576,73 @@ const docTemplate = `{
             "properties": {
                 "author": {
                     "type": "string",
-                    "maxLength": 255,
-                    "minLength": 1
+                    "maxLength": 100,
+                    "minLength": 3
                 },
                 "description": {
                     "type": "string",
                     "maxLength": 1000,
-                    "minLength": 1
+                    "minLength": 10
                 },
                 "photos": {
                     "type": "array",
+                    "maxItems": 5,
+                    "minItems": 1,
                     "items": {
                         "type": "string"
                     }
                 },
-                "state": {
-                    "type": "string",
-                    "enum": [
-                        "available",
-                        "trading",
-                        "traded"
-                    ]
+                "state_id": {
+                    "type": "integer",
+                    "minimum": 1
                 },
                 "title": {
                     "type": "string",
-                    "maxLength": 255,
-                    "minLength": 1
+                    "maxLength": 100,
+                    "minLength": 3
+                }
+            }
+        },
+        "state.CreateStateDTO": {
+            "type": "object",
+            "required": [
+                "name"
+            ],
+            "properties": {
+                "name": {
+                    "type": "string",
+                    "maxLength": 50,
+                    "minLength": 3
+                }
+            }
+        },
+        "state.State": {
+            "type": "object",
+            "properties": {
+                "created_at": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "updated_at": {
+                    "type": "string"
+                }
+            }
+        },
+        "state.UpdateStateDTO": {
+            "type": "object",
+            "required": [
+                "name"
+            ],
+            "properties": {
+                "name": {
+                    "type": "string",
+                    "maxLength": 50,
+                    "minLength": 3
                 }
             }
         },

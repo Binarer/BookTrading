@@ -35,7 +35,7 @@ type Book struct {
 
 	// @Description Current state of the book
 	// @example available
-	State       string     `json:"state"`
+	StateID     int64      `json:"state_id"`
 
 	// @Description List of base64 encoded photos of the book
 	// @example ["data:image/jpeg;base64,/9j/4AAQSkZJRg..."]
@@ -55,19 +55,19 @@ type Book struct {
 
 // CreateBookDTO represents the data needed to create a new book
 type CreateBookDTO struct {
-	Title       string   `json:"title" validate:"required,min=1,max=255"`
-	Author      string   `json:"author" validate:"required,min=1,max=255"`
-	Description string   `json:"description" validate:"required,min=1,max=1000"`
-	State       string   `json:"state" validate:"required,oneof=available trading traded"`
-	Photos      []string `json:"photos" validate:"dive,base64"`
-	TagIDs      []int64  `json:"tag_ids" validate:"dive,min=1"`
+	Title       string   `json:"title" validate:"required,min=3,max=100"`
+	Author      string   `json:"author" validate:"required,min=3,max=100"`
+	Description string   `json:"description" validate:"required,min=10,max=1000"`
+	StateID     int64    `json:"state_id" validate:"required"`
+	Photos      []string `json:"photos" validate:"required,min=1,max=5,dive,base64"`
+	TagIDs      []int64  `json:"tag_ids" validate:"required,min=1,max=5,dive,min=1"`
 }
 
 // UpdateBookDTO represents the data needed to update a book
 type UpdateBookDTO struct {
-	Title       string   `json:"title" validate:"omitempty,min=1,max=255"`
-	Author      string   `json:"author" validate:"omitempty,min=1,max=255"`
-	Description string   `json:"description" validate:"omitempty,min=1,max=1000"`
-	State       string   `json:"state" validate:"omitempty,oneof=available trading traded"`
-	Photos      []string `json:"photos" validate:"omitempty,dive,base64"`
+	Title       string   `json:"title" validate:"omitempty,min=3,max=100"`
+	Author      string   `json:"author" validate:"omitempty,min=3,max=100"`
+	Description string   `json:"description" validate:"omitempty,min=10,max=1000"`
+	StateID     int64    `json:"state_id" validate:"omitempty,min=1"`
+	Photos      []string `json:"photos" validate:"omitempty,min=1,max=5,dive,base64"`
 } 

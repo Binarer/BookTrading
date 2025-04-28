@@ -60,13 +60,15 @@ func main() {
 	// Инициализация репозиториев
 	tagRepo := mysql.NewTagRepository(db.DB)
 	bookRepo := mysql.NewBookRepository(db.DB)
+	stateRepo := mysql.NewStateRepository(db.DB)
 
 	// Инициализация use cases
-	tagUsecase := usecase.NewTagUsecase(tagRepo, localCache)
+	tagUsecase := usecase.NewTagUsecase(tagRepo, bookRepo, localCache)
 	bookUsecase := usecase.NewBookUsecase(bookRepo, tagRepo, localCache)
+	stateUsecase := usecase.NewStateUsecase(stateRepo)
 
 	// Инициализация HTTP обработчика
-	handler := httpHandler.NewHandler(tagUsecase, bookUsecase)
+	handler := httpHandler.NewHandler(tagUsecase, bookUsecase, stateUsecase)
 
 	// Настройка CORS
 	corsMiddleware := cors.New(cors.Options{

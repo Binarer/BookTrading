@@ -2,8 +2,8 @@ package http
 
 import (
 	"booktrading/internal/domain/book"
-	"booktrading/internal/domain/tag"
 	"booktrading/internal/domain/state"
+	"booktrading/internal/domain/tag"
 	"booktrading/internal/pkg/logger"
 	"booktrading/internal/pkg/validator"
 	"booktrading/internal/usecase"

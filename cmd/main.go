@@ -9,7 +9,6 @@ import (
 	"booktrading/internal/domain/user"
 	"booktrading/internal/pkg/cache"
 	"booktrading/internal/pkg/logger"
-	"booktrading/internal/pkg/swagger"
 	"booktrading/internal/repository/mysql"
 	"booktrading/internal/usecase"
 	"fmt"

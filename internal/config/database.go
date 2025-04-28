@@ -18,10 +18,10 @@ func NewDatabaseConfig() *DatabaseConfig {
 	port, _ := strconv.Atoi(getEnv("DB_PORT", "3306"))
 
 	return &DatabaseConfig{
-		Host:     getEnv("DB_HOST", "localhost"),
+		Host:     getEnv("DB_HOST", "mysql"),
 		Port:     port,
 		User:     getEnv("DB_USER", "root"),
-		Password: getEnv("DB_PASSWORD", ""),
+		Password: getEnv("DB_PASSWORD", "root"),
 		DBName:   getEnv("DB_NAME", "booktrading"),
 	}
 }

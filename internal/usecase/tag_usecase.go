@@ -14,12 +14,12 @@ import (
 // TagUsecase определяет интерфейс для работы с тегами
 type TagUsecase interface {
 	CreateTag(tag *tag.Tag) error
-	GetTagByID(id int64) (*tag.Tag, error)
+	GetTagByID(id uint) (*tag.Tag, error)
 	GetTagByName(name string) (*tag.Tag, error)
 	GetAllTags() ([]*tag.Tag, error)
 	GetPopularTags(limit int) ([]*tag.Tag, error)
-	UpdateTag(id int64, dto *tag.UpdateTagDTO) (*tag.Tag, error)
-	DeleteTag(id int64) error
+	UpdateTag(id uint, dto *tag.UpdateTagDTO) (*tag.Tag, error)
+	DeleteTag(id uint) error
 }
 
 // tagUsecase реализует интерфейс TagUsecase
@@ -61,7 +61,7 @@ func (u *tagUsecase) CreateTag(tag *tag.Tag) error {
 }
 
 // GetTagByID получает тег по ID
-func (u *tagUsecase) GetTagByID(id int64) (*tag.Tag, error) {
+func (u *tagUsecase) GetTagByID(id uint) (*tag.Tag, error) {
 	// Попытка получить тег из кеша
 	cacheKey := fmt.Sprintf("tag:%d", id)
 	if cached, found := u.cache.Get(cacheKey); found {
@@ -153,7 +153,7 @@ func (u *tagUsecase) GetPopularTags(limit int) ([]*tag.Tag, error) {
 }
 
 // UpdateTag обновляет существующий тег
-func (u *tagUsecase) UpdateTag(id int64, dto *tag.UpdateTagDTO) (*tag.Tag, error) {
+func (u *tagUsecase) UpdateTag(id uint, dto *tag.UpdateTagDTO) (*tag.Tag, error) {
 	// Получаем существующий тег
 	existingTag, err := u.GetTagByID(id)
 	if err != nil {
@@ -185,9 +185,9 @@ func (u *tagUsecase) UpdateTag(id int64, dto *tag.UpdateTagDTO) (*tag.Tag, error
 }
 
 // DeleteTag удаляет тег по ID
-func (u *tagUsecase) DeleteTag(id int64) error {
+func (u *tagUsecase) DeleteTag(id uint) error {
 	// Проверяем, используется ли тег в книгах
-	books, err := u.bookRepo.GetByTags([]int64{id})
+	books, err := u.bookRepo.GetByTags([]uint{id})
 	if err != nil {
 		return err
 	}

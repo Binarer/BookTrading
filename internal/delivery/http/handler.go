@@ -134,14 +134,14 @@ func (h *Handler) createTag(w http.ResponseWriter, r *http.Request) {
 // @Success 200 {object} tag.Tag
 // @Router /api/v1/tags/{id} [get]
 func (h *Handler) getTagByID(w http.ResponseWriter, r *http.Request) {
-	id, err := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
+	id, err := strconv.ParseUint(chi.URLParam(r, "id"), 10, 32)
 	if err != nil {
 		logger.Error("Invalid tag ID", err)
 		http.Error(w, "Invalid tag ID", http.StatusBadRequest)
 		return
 	}
 
-	tag, err := h.tagUsecase.GetTagByID(id)
+	tag, err := h.tagUsecase.GetTagByID(uint(id))
 	if err != nil {
 		logger.Error("Failed to get tag", err)
 		http.Error(w, "Tag not found", http.StatusNotFound)
@@ -200,22 +200,28 @@ func (h *Handler) createBook(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Create new book
 	newBook := &book.Book{
 		Title:       dto.Title,
 		Author:      dto.Author,
 		Description: dto.Description,
-		StateID:     dto.StateID,
-		Photos:      dto.Photos,
+		StateID:     uint(dto.StateID),
 	}
 
-	if err := h.bookUsecase.CreateBook(newBook, dto.TagIDs); err != nil {
+	// Convert tag IDs to uint
+	tagIDs := make([]uint, len(dto.TagIDs))
+	for i, id := range dto.TagIDs {
+		tagIDs[i] = uint(id)
+	}
+
+	// Save book
+	if err := h.bookUsecase.CreateBook(newBook, tagIDs); err != nil {
 		logger.Error("Failed to create book", err)
-		http.Error(w, "Failed to create book: "+err.Error(), http.StatusInternalServerError)
+		http.Error(w, "Failed to create book", http.StatusInternalServerError)
 		return
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusCreated)
 	json.NewEncoder(w).Encode(newBook)
 }
 
@@ -229,7 +235,7 @@ func (h *Handler) createBook(w http.ResponseWriter, r *http.Request) {
 // @Success 200 {object} book.Book
 // @Router /api/v1/books/{id} [put]
 func (h *Handler) updateBook(w http.ResponseWriter, r *http.Request) {
-	id, err := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
+	id, err := strconv.ParseUint(chi.URLParam(r, "id"), 10, 32)
 	if err != nil {
 		logger.Error("Invalid book ID", err)
 		http.Error(w, "Invalid book ID", http.StatusBadRequest)
@@ -251,7 +257,7 @@ func (h *Handler) updateBook(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Update book
-	updatedBook, err := h.bookUsecase.UpdateBook(id, &dto)
+	updatedBook, err := h.bookUsecase.UpdateBook(uint(id), &dto)
 	if err != nil {
 		logger.Error("Failed to update book", err)
 		http.Error(w, "Failed to update book", http.StatusInternalServerError)
@@ -270,14 +276,14 @@ func (h *Handler) updateBook(w http.ResponseWriter, r *http.Request) {
 // @Success 200 {object} book.Book
 // @Router /api/v1/books/{id} [get]
 func (h *Handler) getBookByID(w http.ResponseWriter, r *http.Request) {
-	id, err := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
+	id, err := strconv.ParseUint(chi.URLParam(r, "id"), 10, 32)
 	if err != nil {
 		logger.Error("Invalid book ID", err)
 		http.Error(w, "Invalid book ID", http.StatusBadRequest)
 		return
 	}
 
-	book, err := h.bookUsecase.GetBookByID(id)
+	book, err := h.bookUsecase.GetBookByID(uint(id))
 	if err != nil {
 		logger.Error("Failed to get book", err)
 		http.Error(w, "Book not found", http.StatusNotFound)
@@ -289,23 +295,28 @@ func (h *Handler) getBookByID(w http.ResponseWriter, r *http.Request) {
 }
 
 // @Summary Search books by tags
-// @Description Search books that have all specified tags
+// @Description Search books by tag IDs
 // @Tags books
 // @Produce json
-// @Param tag_id query []int true "Tag IDs"
+// @Param tagIds query []int true "Tag IDs"
 // @Success 200 {array} book.Book
 // @Router /api/v1/books/search [get]
 func (h *Handler) searchBooksByTags(w http.ResponseWriter, r *http.Request) {
-	tagIDsStr := r.URL.Query()["tag_id"]
-	var tagIDs []int64
-	for _, idStr := range tagIDsStr {
-		id, err := strconv.ParseInt(idStr, 10, 64)
+	tagIDsStr := r.URL.Query()["tagIds"]
+	if len(tagIDsStr) == 0 {
+		http.Error(w, "No tag IDs provided", http.StatusBadRequest)
+		return
+	}
+
+	tagIDs := make([]uint, len(tagIDsStr))
+	for i, idStr := range tagIDsStr {
+		id, err := strconv.ParseUint(idStr, 10, 32)
 		if err != nil {
 			logger.Error("Invalid tag ID", err)
 			http.Error(w, "Invalid tag ID", http.StatusBadRequest)
 			return
 		}
-		tagIDs = append(tagIDs, id)
+		tagIDs[i] = uint(id)
 	}
 
 	books, err := h.bookUsecase.GetBooksByTags(tagIDs)
@@ -320,36 +331,49 @@ func (h *Handler) searchBooksByTags(w http.ResponseWriter, r *http.Request) {
 }
 
 // @Summary Add tags to book
-// @Description Add multiple tags to a book
+// @Description Add tags to an existing book
 // @Tags books
 // @Accept json
 // @Produce json
 // @Param id path int true "Book ID"
-// @Param tags body []int64 true "Tag IDs"
-// @Success 200
+// @Param tagIds body []int true "Tag IDs"
+// @Success 200 {object} book.Book
 // @Router /api/v1/books/{id}/tags [post]
 func (h *Handler) addTagsToBook(w http.ResponseWriter, r *http.Request) {
-	bookID, err := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
+	bookID, err := strconv.ParseUint(chi.URLParam(r, "id"), 10, 32)
 	if err != nil {
 		logger.Error("Invalid book ID", err)
 		http.Error(w, "Invalid book ID", http.StatusBadRequest)
 		return
 	}
 
-	var tagIDs []int64
-	if err := json.NewDecoder(r.Body).Decode(&tagIDs); err != nil {
+	var tagIDsInt []int64
+	if err := json.NewDecoder(r.Body).Decode(&tagIDsInt); err != nil {
 		logger.Error("Failed to decode request body", err)
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
 		return
 	}
 
-	if err := h.bookUsecase.AddTagsToBook(bookID, tagIDs); err != nil {
+	tagIDs := make([]uint, len(tagIDsInt))
+	for i, id := range tagIDsInt {
+		tagIDs[i] = uint(id)
+	}
+
+	if err := h.bookUsecase.AddTagsToBook(uint(bookID), tagIDs); err != nil {
 		logger.Error("Failed to add tags to book", err)
 		http.Error(w, "Failed to add tags to book", http.StatusInternalServerError)
 		return
 	}
 
-	w.WriteHeader(http.StatusOK)
+	book, err := h.bookUsecase.GetBookByID(uint(bookID))
+	if err != nil {
+		logger.Error("Failed to get updated book", err)
+		http.Error(w, "Failed to get updated book", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(book)
 }
 
 // @Summary Create a new state
@@ -408,13 +432,13 @@ func (h *Handler) getAllStates(w http.ResponseWriter, r *http.Request) {
 // @Success 200 {object} state.State
 // @Router /api/v1/states/{id} [get]
 func (h *Handler) getStateByID(w http.ResponseWriter, r *http.Request) {
-	id, err := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
+	id, err := strconv.ParseUint(chi.URLParam(r, "id"), 10, 32)
 	if err != nil {
 		http.Error(w, "Invalid state ID", http.StatusBadRequest)
 		return
 	}
 
-	s, err := h.stateUsecase.GetStateByID(id)
+	s, err := h.stateUsecase.GetStateByID(uint(id))
 	if err != nil {
 		http.Error(w, "State not found", http.StatusNotFound)
 		return
@@ -434,7 +458,7 @@ func (h *Handler) getStateByID(w http.ResponseWriter, r *http.Request) {
 // @Success 200 {object} state.State
 // @Router /api/v1/states/{id} [put]
 func (h *Handler) updateState(w http.ResponseWriter, r *http.Request) {
-	id, err := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
+	id, err := strconv.ParseUint(chi.URLParam(r, "id"), 10, 32)
 	if err != nil {
 		http.Error(w, "Invalid state ID", http.StatusBadRequest)
 		return
@@ -451,7 +475,7 @@ func (h *Handler) updateState(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	s, err := h.stateUsecase.UpdateState(id, &dto)
+	s, err := h.stateUsecase.UpdateState(uint(id), &dto)
 	if err != nil {
 		http.Error(w, "Failed to update state", http.StatusInternalServerError)
 		return
@@ -468,13 +492,13 @@ func (h *Handler) updateState(w http.ResponseWriter, r *http.Request) {
 // @Success 204 "No Content"
 // @Router /api/v1/states/{id} [delete]
 func (h *Handler) deleteState(w http.ResponseWriter, r *http.Request) {
-	id, err := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
+	id, err := strconv.ParseUint(chi.URLParam(r, "id"), 10, 32)
 	if err != nil {
 		http.Error(w, "Invalid state ID", http.StatusBadRequest)
 		return
 	}
 
-	if err := h.stateUsecase.DeleteState(id); err != nil {
+	if err := h.stateUsecase.DeleteState(uint(id)); err != nil {
 		http.Error(w, "Failed to delete state", http.StatusInternalServerError)
 		return
 	}
@@ -483,19 +507,19 @@ func (h *Handler) deleteState(w http.ResponseWriter, r *http.Request) {
 }
 
 // @Summary Delete book
-// @Description Delete a book
+// @Description Delete a book by ID
 // @Tags books
 // @Param id path int true "Book ID"
 // @Success 204 "No Content"
 // @Router /api/v1/books/{id} [delete]
 func (h *Handler) deleteBook(w http.ResponseWriter, r *http.Request) {
-	id, err := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
+	id, err := strconv.ParseUint(chi.URLParam(r, "id"), 10, 32)
 	if err != nil {
 		http.Error(w, "Invalid book ID", http.StatusBadRequest)
 		return
 	}
 
-	if err := h.bookUsecase.DeleteBook(id); err != nil {
+	if err := h.bookUsecase.DeleteBook(uint(id)); err != nil {
 		http.Error(w, "Failed to delete book", http.StatusInternalServerError)
 		return
 	}
@@ -510,13 +534,13 @@ func (h *Handler) deleteBook(w http.ResponseWriter, r *http.Request) {
 // @Success 204 "No Content"
 // @Router /api/v1/tags/{id} [delete]
 func (h *Handler) deleteTag(w http.ResponseWriter, r *http.Request) {
-	id, err := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
+	id, err := strconv.ParseUint(chi.URLParam(r, "id"), 10, 32)
 	if err != nil {
 		http.Error(w, "Invalid tag ID", http.StatusBadRequest)
 		return
 	}
 
-	if err := h.tagUsecase.DeleteTag(id); err != nil {
+	if err := h.tagUsecase.DeleteTag(uint(id)); err != nil {
 		http.Error(w, "Failed to delete tag", http.StatusInternalServerError)
 		return
 	}
@@ -552,7 +576,7 @@ func (h *Handler) getAllTags(w http.ResponseWriter, r *http.Request) {
 // @Success 200 {object} book.Book
 // @Router /api/v1/books/{id}/state [patch]
 func (h *Handler) updateBookState(w http.ResponseWriter, r *http.Request) {
-	id, err := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
+	id, err := strconv.ParseUint(chi.URLParam(r, "id"), 10, 32)
 	if err != nil {
 		logger.Error("Invalid book ID", err)
 		http.Error(w, "Invalid book ID", http.StatusBadRequest)
@@ -572,7 +596,7 @@ func (h *Handler) updateBookState(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	updatedBook, err := h.bookUsecase.UpdateBookState(id, dto.StateID)
+	book, err := h.bookUsecase.UpdateBookState(uint(id), uint(dto.StateID))
 	if err != nil {
 		logger.Error("Failed to update book state", err)
 		http.Error(w, "Failed to update book state", http.StatusInternalServerError)
@@ -580,5 +604,5 @@ func (h *Handler) updateBookState(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(updatedBook)
+	json.NewEncoder(w).Encode(book)
 }

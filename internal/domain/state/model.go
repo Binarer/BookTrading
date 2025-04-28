@@ -1,15 +1,18 @@
 package state
 
 import (
-	"time"
+	"booktrading/internal/pkg/gorm"
 )
 
 // State represents a book state
 type State struct {
-	ID        int64     `json:"id"`
-	Name      string    `json:"name"`
-	CreatedAt time.Time `json:"created_at"`
-	UpdatedAt time.Time `json:"updated_at"`
+	gorm.Base
+	Name string `gorm:"size:50;not null;unique"`
+}
+
+// TableName specifies the table name for the State model
+func (State) TableName() string {
+	return "states"
 }
 
 // CreateStateDTO represents the data needed to create a new state

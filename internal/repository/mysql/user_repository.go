@@ -2,80 +2,44 @@ package mysql
 
 import (
 	"booktrading/internal/domain/user"
-	"database/sql"
-	"time"
+	"gorm.io/gorm"
 )
 
-type userRepository struct {
-	db *sql.DB
+type UserRepository struct {
+	db *gorm.DB
 }
 
-func NewUserRepository(db *sql.DB) *userRepository {
-	return &userRepository{db: db}
+func NewUserRepository(db *gorm.DB) *UserRepository {
+	return &UserRepository{db: db}
 }
 
-func (r *userRepository) Create(u *user.User) error {
-	query := `INSERT INTO users (username, email, password_hash, created_at, updated_at) 
-			  VALUES (?, ?, ?, ?, ?)`
-
-	now := time.Now()
-	result, err := r.db.Exec(query, u.Username, u.Email, u.PasswordHash, now, now)
-	if err != nil {
-		return err
-	}
-
-	id, err := result.LastInsertId()
-	if err != nil {
-		return err
-	}
-
-	u.ID = id
-	u.CreatedAt = now
-	u.UpdatedAt = now
-	return nil
+func (r *UserRepository) Create(u *user.User) error {
+	return r.db.Create(u).Error
 }
 
-func (r *userRepository) GetByID(id int64) (*user.User, error) {
-	query := `SELECT id, username, email, password_hash, created_at, updated_at 
-			  FROM users WHERE id = ?`
-
-	u := &user.User{}
-	err := r.db.QueryRow(query, id).Scan(
-		&u.ID, &u.Username, &u.Email, &u.PasswordHash, &u.CreatedAt, &u.UpdatedAt,
-	)
-	if err != nil {
+func (r *UserRepository) GetByID(id uint) (*user.User, error) {
+	var u user.User
+	if err := r.db.First(&u, id).Error; err != nil {
 		return nil, err
 	}
-
-	return u, nil
+	return &u, nil
 }
 
-func (r *userRepository) GetByEmail(email string) (*user.User, error) {
-	query := `SELECT id, username, email, password_hash, created_at, updated_at 
-			  FROM users WHERE email = ?`
-
-	u := &user.User{}
-	err := r.db.QueryRow(query, email).Scan(
-		&u.ID, &u.Username, &u.Email, &u.PasswordHash, &u.CreatedAt, &u.UpdatedAt,
-	)
-	if err != nil {
+func (r *UserRepository) GetByEmail(email string) (*user.User, error) {
+	var u user.User
+	if err := r.db.Where("email = ?", email).First(&u).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return nil, nil
+		}
 		return nil, err
 	}
-
-	return u, nil
+	return &u, nil
 }
 
-func (r *userRepository) Update(u *user.User) error {
-	query := `UPDATE users 
-			  SET username = ?, email = ?, password_hash = ?, updated_at = ? 
-			  WHERE id = ?`
+func (r *UserRepository) Update(u *user.User) error {
+	return r.db.Save(u).Error
+}
 
-	now := time.Now()
-	_, err := r.db.Exec(query, u.Username, u.Email, u.PasswordHash, now, u.ID)
-	if err != nil {
-		return err
-	}
-
-	u.UpdatedAt = now
-	return nil
+func (r *UserRepository) Delete(id uint) error {
+	return r.db.Delete(&user.User{}, id).Error
 } 

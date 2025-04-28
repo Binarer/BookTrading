@@ -1,15 +1,15 @@
 package mysql
 
 import (
-	"database/sql"
-	"fmt"
-	_ "github.com/go-sql-driver/mysql"
 	"booktrading/internal/config"
+	"fmt"
+	"gorm.io/driver/mysql"
+	"gorm.io/gorm"
 )
 
-// NewConnection creates a new MySQL connection
-func NewConnection(cfg *config.DatabaseConfig) (*sql.DB, error) {
-	dsn := fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?parseTime=true",
+// NewConnection creates a new GORM database connection
+func NewConnection(cfg *config.DatabaseConfig) (*gorm.DB, error) {
+	dsn := fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?charset=utf8mb4&parseTime=True&loc=Local",
 		cfg.User,
 		cfg.Password,
 		cfg.Host,
@@ -17,13 +17,9 @@ func NewConnection(cfg *config.DatabaseConfig) (*sql.DB, error) {
 		cfg.DBName,
 	)
 
-	db, err := sql.Open("mysql", dsn)
+	db, err := gorm.Open(mysql.Open(dsn), &gorm.Config{})
 	if err != nil {
-		return nil, fmt.Errorf("failed to open database connection: %w", err)
-	}
-
-	if err := db.Ping(); err != nil {
-		return nil, fmt.Errorf("failed to ping database: %w", err)
+		return nil, fmt.Errorf("failed to connect to database: %w", err)
 	}
 
 	return db, nil

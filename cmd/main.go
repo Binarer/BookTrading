@@ -3,6 +3,10 @@ package main
 import (
 	"booktrading/internal/config"
 	httpHandler "booktrading/internal/delivery/http"
+	"booktrading/internal/domain/book"
+	"booktrading/internal/domain/state"
+	"booktrading/internal/domain/tag"
+	"booktrading/internal/domain/user"
 	"booktrading/internal/pkg/cache"
 	"booktrading/internal/pkg/logger"
 	"booktrading/internal/repository/mysql"
@@ -17,7 +21,7 @@ import (
 // @title Book Trading API
 // @version 1.0
 // @description API for book trading system with tag support
-// @host 10.3.13.28:8000
+// @host localhost:8000
 // @BasePath /
 func main() {
 	// Инициализация логгера
@@ -37,7 +41,16 @@ func main() {
 	if err != nil {
 		logger.Fatal("Failed to connect to database", err)
 	}
-	defer db.Close()
+
+	// Автомиграция моделей
+	if err := db.AutoMigrate(
+		&book.Book{},
+		&tag.Tag{},
+		&state.State{},
+		&user.User{},
+	); err != nil {
+		logger.Fatal("Failed to run migrations", err)
+	}
 
 	bookRepo := mysql.NewBookRepository(db)
 	tagRepo := mysql.NewTagRepository(db)
@@ -65,8 +78,13 @@ func main() {
 	handler.InitRoutes(r)
 
 	// Запуск сервера
-	logger.Info("Server starting on port 8000")
-	if err := http.ListenAndServe(":8000", r); err != nil {
+	server := &http.Server{
+		Addr:    fmt.Sprintf(":%d", cfg.Server.Port),
+		Handler: r,
+	}
+
+	logger.Info(fmt.Sprintf("Server is running on port %d", cfg.Server.Port))
+	if err := server.ListenAndServe(); err != nil {
 		logger.Fatal("Failed to start server", err)
 	}
 }

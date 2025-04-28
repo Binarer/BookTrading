@@ -2,62 +2,65 @@ package usecase
 
 import (
 	"booktrading/internal/domain/book"
-	"booktrading/internal/domain/booktag"
 	"booktrading/internal/domain/tag"
 	"booktrading/internal/pkg/cache"
-	"booktrading/internal/repository"
+	"booktrading/internal/repository/mysql"
 	"fmt"
 	"time"
 )
 
 // BookUsecase определяет интерфейс для работы с книгами
 type BookUsecase interface {
-	CreateBook(book *book.Book, tagIDs []int64) error
-	GetBookByID(id int64) (*book.Book, error)
-	GetBooksByTags(tagIDs []int64) ([]*book.Book, error)
-	AddTagsToBook(bookID int64, tagIDs []int64) error
-	UpdateBook(id int64, dto *book.UpdateBookDTO) (*book.Book, error)
-	UpdateBookState(id int64, stateID int64) (*book.Book, error)
-	DeleteBook(id int64) error
+	CreateBook(book *book.Book, tagIDs []uint) error
+	GetBookByID(id uint) (*book.Book, error)
+	GetBooksByTags(tagIDs []uint) ([]*book.Book, error)
+	AddTagsToBook(bookID uint, tagIDs []uint) error
+	UpdateBook(id uint, dto *book.UpdateBookDTO) (*book.Book, error)
+	UpdateBookState(id uint, stateID uint) (*book.Book, error)
+	DeleteBook(id uint) error
 }
 
 // bookUsecase реализует интерфейс BookUsecase
 type bookUsecase struct {
-	bookRepo    repository.BookRepository
-	tagRepo     repository.TagRepository
-	cache       *cache.Cache
-	bookSvc     *book.Service
-	bookTagSvc  *booktag.Service
+	bookRepo *mysql.BookRepository
+	tagRepo  *mysql.TagRepository
+	cache    *cache.Cache
+	bookSvc  *book.Service
 }
 
 // NewBookUsecase создает новый экземпляр bookUsecase
-func NewBookUsecase(bookRepo repository.BookRepository, tagRepo repository.TagRepository, cache *cache.Cache) BookUsecase {
+func NewBookUsecase(bookRepo *mysql.BookRepository, tagRepo *mysql.TagRepository, cache *cache.Cache) BookUsecase {
 	return &bookUsecase{
-		bookRepo:    bookRepo,
-		tagRepo:     tagRepo,
-		cache:       cache,
-		bookSvc:     book.NewService(),
-		bookTagSvc:  booktag.NewService(),
+		bookRepo: bookRepo,
+		tagRepo:  tagRepo,
+		cache:    cache,
+		bookSvc:  book.NewService(),
 	}
 }
 
 // CreateBook создает новую книгу
-func (u *bookUsecase) CreateBook(book *book.Book, tagIDs []int64) error {
+func (u *bookUsecase) CreateBook(book *book.Book, tagIDs []uint) error {
 	// Устанавливаем состояние по умолчанию
 	if book.StateID == 0 {
-		book.StateID = 1 // Assuming 1 is the default state ID
+		book.StateID = 1 // Предполагаем, что 1 - это ID состояния по умолчанию
 	}
+
+	// Получаем теги
+	var tags []*tag.Tag
+	for _, tagID := range tagIDs {
+		tag, err := u.tagRepo.GetByID(tagID)
+		if err != nil {
+			return err
+		}
+		tags = append(tags, tag)
+	}
+
+	// Добавляем теги к книге
+	u.bookSvc.AddTags(book, tags)
 
 	// Сохраняем в репозиторий
 	if err := u.bookRepo.Create(book); err != nil {
 		return err
-	}
-
-	// Добавляем теги, если они указаны
-	if len(tagIDs) > 0 {
-		if err := u.bookRepo.AddTags(book.ID, tagIDs); err != nil {
-			return err
-		}
 	}
 
 	// Инвалидация кеша
@@ -67,7 +70,7 @@ func (u *bookUsecase) CreateBook(book *book.Book, tagIDs []int64) error {
 }
 
 // GetBookByID получает книгу по ID
-func (u *bookUsecase) GetBookByID(id int64) (*book.Book, error) {
+func (u *bookUsecase) GetBookByID(id uint) (*book.Book, error) {
 	// Попытка получить книгу из кеша
 	cacheKey := fmt.Sprintf("book:%d", id)
 	if cached, found := u.cache.Get(cacheKey); found {
@@ -89,7 +92,7 @@ func (u *bookUsecase) GetBookByID(id int64) (*book.Book, error) {
 }
 
 // GetBooksByTags получает книги по тегам
-func (u *bookUsecase) GetBooksByTags(tagIDs []int64) ([]*book.Book, error) {
+func (u *bookUsecase) GetBooksByTags(tagIDs []uint) ([]*book.Book, error) {
 	// Попытка получить книги из кеша
 	cacheKey := fmt.Sprintf("books:tags:%v", tagIDs)
 	if cached, found := u.cache.Get(cacheKey); found {
@@ -99,9 +102,13 @@ func (u *bookUsecase) GetBooksByTags(tagIDs []int64) ([]*book.Book, error) {
 	}
 
 	// Получение книг из репозитория
-	books, err := u.bookRepo.GetByTags(tagIDs)
-	if err != nil {
-		return nil, err
+	var books []*book.Book
+	for _, tagID := range tagIDs {
+		tagBooks, err := u.bookRepo.GetByTag(tagID)
+		if err != nil {
+			return nil, err
+		}
+		books = append(books, tagBooks...)
 	}
 
 	// Сохранение в кеш
@@ -111,7 +118,7 @@ func (u *bookUsecase) GetBooksByTags(tagIDs []int64) ([]*book.Book, error) {
 }
 
 // AddTagsToBook добавляет теги к книге
-func (u *bookUsecase) AddTagsToBook(bookID int64, tagIDs []int64) error {
+func (u *bookUsecase) AddTagsToBook(bookID uint, tagIDs []uint) error {
 	// Получаем книгу
 	book, err := u.GetBookByID(bookID)
 	if err != nil {
@@ -131,8 +138,8 @@ func (u *bookUsecase) AddTagsToBook(bookID int64, tagIDs []int64) error {
 	// Добавляем теги через доменный сервис
 	u.bookSvc.AddTags(book, tags)
 
-	// Сохраняем связи в репозитории
-	if err := u.bookRepo.AddTags(bookID, tagIDs); err != nil {
+	// Сохраняем в репозитории
+	if err := u.bookRepo.Update(book); err != nil {
 		return err
 	}
 
@@ -144,7 +151,7 @@ func (u *bookUsecase) AddTagsToBook(bookID int64, tagIDs []int64) error {
 }
 
 // UpdateBook обновляет существующую книгу
-func (u *bookUsecase) UpdateBook(id int64, dto *book.UpdateBookDTO) (*book.Book, error) {
+func (u *bookUsecase) UpdateBook(id uint, dto *book.UpdateBookDTO) (*book.Book, error) {
 	// Получаем существующую книгу
 	existingBook, err := u.GetBookByID(id)
 	if err != nil {
@@ -162,10 +169,7 @@ func (u *bookUsecase) UpdateBook(id int64, dto *book.UpdateBookDTO) (*book.Book,
 		existingBook.Description = dto.Description
 	}
 	if dto.StateID != 0 {
-		existingBook.StateID = dto.StateID
-	}
-	if len(dto.Photos) > 0 {
-		existingBook.Photos = dto.Photos
+		existingBook.StateID = uint(dto.StateID)
 	}
 
 	// Обновляем в репозитории
@@ -181,7 +185,7 @@ func (u *bookUsecase) UpdateBook(id int64, dto *book.UpdateBookDTO) (*book.Book,
 }
 
 // UpdateBookState обновляет состояние книги
-func (u *bookUsecase) UpdateBookState(id int64, stateID int64) (*book.Book, error) {
+func (u *bookUsecase) UpdateBookState(id uint, stateID uint) (*book.Book, error) {
 	// Получаем существующую книгу
 	existingBook, err := u.GetBookByID(id)
 	if err != nil {
@@ -204,6 +208,15 @@ func (u *bookUsecase) UpdateBookState(id int64, stateID int64) (*book.Book, erro
 }
 
 // DeleteBook удаляет книгу
-func (u *bookUsecase) DeleteBook(id int64) error {
-	return u.bookRepo.Delete(id)
+func (u *bookUsecase) DeleteBook(id uint) error {
+	// Удаляем из репозитория
+	if err := u.bookRepo.Delete(id); err != nil {
+		return err
+	}
+
+	// Инвалидация кеша
+	u.cache.Delete(fmt.Sprintf("book:%d", id))
+	u.cache.Delete("books")
+
+	return nil
 } 

@@ -1,27 +1,21 @@
 package tag
 
-import "time"
-
-// Service provides business logic for Tag entity
+// Service предоставляет бизнес-логику для сущности Tag
 type Service struct{}
 
-// NewService creates a new Tag service
+// NewService создает новый сервис для работы с тегами
 func NewService() *Service {
 	return &Service{}
 }
 
-// CreateTag creates a new tag with the given name
+// CreateTag создает новый тег с заданным именем
 func (s *Service) CreateTag(name string) *Tag {
-	now := time.Now()
 	return &Tag{
-		Name:      name,
-		CreatedAt: now,
-		UpdatedAt: now,
+		Name: name,
 	}
 }
 
-// UpdateTag updates tag name
+// UpdateTag обновляет имя тега
 func (s *Service) UpdateTag(tag *Tag, name string) {
 	tag.Name = name
-	tag.UpdatedAt = time.Now()
 } 

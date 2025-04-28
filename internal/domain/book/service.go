@@ -2,38 +2,37 @@ package book
 
 import (
 	"booktrading/internal/domain/tag"
-	"time"
 )
 
-// Service provides business logic for Book entity
+// Service предоставляет бизнес-логику для сущности Book
 type Service struct{}
 
-// NewService creates a new Book service
+// NewService создает новый сервис для работы с книгами
 func NewService() *Service {
 	return &Service{}
 }
 
-// CreateBook creates a new book with the given details
+// CreateBook создает новую книгу с заданными деталями
 func (s *Service) CreateBook(title, author, description string) *Book {
-	now := time.Now()
 	return &Book{
 		Title:       title,
 		Author:      author,
 		Description: description,
-		CreatedAt:   now,
-		UpdatedAt:   now,
 	}
 }
 
-// AddTags adds tags to a book
+// AddTags добавляет теги к книге
 func (s *Service) AddTags(book *Book, tags []*tag.Tag) {
-	book.Tags = tags
+	bookTags := make([]tag.Tag, len(tags))
+	for i, t := range tags {
+		bookTags[i] = *t
+	}
+	book.Tags = bookTags
 }
 
-// UpdateBook updates book details
+// UpdateBook обновляет детали книги
 func (s *Service) UpdateBook(book *Book, title, author, description string) {
 	book.Title = title
 	book.Author = author
 	book.Description = description
-	book.UpdatedAt = time.Now()
 }

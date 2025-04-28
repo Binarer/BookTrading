@@ -1,8 +1,10 @@
 package book
 
 import (
+	"booktrading/internal/pkg/gorm"
+	"booktrading/internal/domain/state"
 	"booktrading/internal/domain/tag"
-	"time"
+	"booktrading/internal/domain/user"
 )
 
 // BookState represents the possible states of a book
@@ -14,43 +16,23 @@ const (
 	StateTraded    BookState = "traded"
 )
 
-// Book represents a book in the system
-// @Description Book model for the book trading system
+// Book represents a book entity
 type Book struct {
-	// @Description Unique identifier for the book
-	// @example 1
-	ID          int64      `json:"id"`
+	gorm.Base
+	Title       string `gorm:"size:255;not null"`
+	Author      string `gorm:"size:255;not null"`
+	Description string `gorm:"type:text"`
+	Price       float64
+	StateID     uint
+	State       state.State
+	Tags        []tag.Tag `gorm:"many2many:book_tags;"`
+	UserID      uint
+	User        user.User
+}
 
-	// @Description Title of the book
-	// @example The Great Gatsby
-	Title       string     `json:"title"`
-
-	// @Description Author of the book
-	// @example F. Scott Fitzgerald
-	Author      string     `json:"author"`
-
-	// @Description Description of the book
-	// @example A story of the fabulously wealthy Jay Gatsby and his love for the beautiful Daisy Buchanan.
-	Description string     `json:"description"`
-
-	// @Description Current state of the book
-	// @example available
-	StateID     int64      `json:"state_id"`
-
-	// @Description List of base64 encoded photos of the book
-	// @example ["data:image/jpeg;base64,/9j/4AAQSkZJRg..."]
-	Photos      []string   `json:"photos"`
-
-	// @Description When the book was added to the system
-	// @example 2025-04-28T12:00:00Z
-	CreatedAt   time.Time  `json:"created_at"`
-
-	// @Description When the book was last updated
-	// @example 2025-04-28T12:00:00Z
-	UpdatedAt   time.Time  `json:"updated_at"`
-
-	// @Description List of tags associated with the book
-	Tags        []*tag.Tag `json:"tags,omitempty"`
+// TableName specifies the table name for the Book model
+func (Book) TableName() string {
+	return "books"
 }
 
 // CreateBookDTO represents the data needed to create a new book

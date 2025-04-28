@@ -8,26 +8,26 @@ import (
 	"github.com/go-playground/validator/v10"
 )
 
-// Validate wraps the go-playground/validator.Validate
+// Validate обертка для go-playground/validator.Validate
 type Validate struct {
 	*validator.Validate
 }
 
-// New creates a new validator instance
+// New создает новый экземпляр валидатора
 func New() *Validate {
 	v := validator.New()
 	
-	// Register custom validation for base64
+	// Регистрация пользовательской валидации для base64
 	_ = v.RegisterValidation("base64", func(fl validator.FieldLevel) bool {
 		value := fl.Field().String()
 		if value == "" {
-			return true // Empty string is considered valid
+			return true // Пустая строка считается валидной
 		}
 		_, err := base64.StdEncoding.DecodeString(value)
 		return err == nil
 	})
 
-	// Register custom validation for state
+	// Регистрация пользовательской валидации для состояния
 	_ = v.RegisterValidation("state", func(fl validator.FieldLevel) bool {
 		value := fl.Field().String()
 		validStates := map[string]bool{
@@ -41,15 +41,15 @@ func New() *Validate {
 	return &Validate{v}
 }
 
-// ValidateStruct validates a struct using the validator
+// ValidateStruct валидирует структуру с помощью валидатора
 func (v *Validate) ValidateStruct(s interface{}) error {
 	return v.Struct(s)
 }
 
-// ValidateTagName validates if a tag name is unique
+// ValidateTagName проверяет, является ли имя тега уникальным
 func ValidateTagName(tagRepo interface {
 	GetByName(name string) (*tag.Tag, error)
-}, name string, excludeID int64) error {
+}, name string, excludeID uint) error {
 	existingTag, err := tagRepo.GetByName(name)
 	if err != nil {
 		return err

@@ -2,6 +2,7 @@ package mysql
 
 import (
 	"booktrading/internal/domain/user"
+	"booktrading/internal/repository"
 	"gorm.io/gorm"
 )
 
@@ -20,16 +21,19 @@ func (r *UserRepository) Create(u *user.User) error {
 func (r *UserRepository) GetByID(id uint) (*user.User, error) {
 	var u user.User
 	if err := r.db.First(&u, id).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return nil, repository.ErrNotFound
+		}
 		return nil, err
 	}
 	return &u, nil
 }
 
-func (r *UserRepository) GetByEmail(email string) (*user.User, error) {
+func (r *UserRepository) GetByLogin(login string) (*user.User, error) {
 	var u user.User
-	if err := r.db.Where("email = ?", email).First(&u).Error; err != nil {
+	if err := r.db.Where("login = ?", login).First(&u).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
-			return nil, nil
+			return nil, repository.ErrNotFound
 		}
 		return nil, err
 	}
@@ -41,5 +45,20 @@ func (r *UserRepository) Update(u *user.User) error {
 }
 
 func (r *UserRepository) Delete(id uint) error {
-	return r.db.Delete(&user.User{}, id).Error
-} 
+	result := r.db.Delete(&user.User{}, id)
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected == 0 {
+		return repository.ErrNotFound
+	}
+	return nil
+}
+
+func (r *UserRepository) GetAll() ([]*user.User, error) {
+	var users []*user.User
+	if err := r.db.Find(&users).Error; err != nil {
+		return nil, err
+	}
+	return users, nil
+}

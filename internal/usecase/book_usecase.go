@@ -13,6 +13,7 @@ import (
 type BookUsecase interface {
 	CreateBook(book *book.Book, tagIDs []uint) error
 	GetBookByID(id uint) (*book.Book, error)
+	GetAllBooks() ([]*book.Book, error)
 	GetBooksByTags(tagIDs []uint) ([]*book.Book, error)
 	AddTagsToBook(bookID uint, tagIDs []uint) error
 	UpdateBook(id uint, dto *book.UpdateBookDTO) (*book.Book, error)
@@ -219,4 +220,8 @@ func (u *bookUsecase) DeleteBook(id uint) error {
 	u.cache.Delete("books")
 
 	return nil
-} 
+}
+
+func (u *bookUsecase) GetAllBooks() ([]*book.Book, error) {
+	return u.bookRepo.GetAll()
+}

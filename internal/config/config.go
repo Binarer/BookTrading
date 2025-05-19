@@ -2,9 +2,7 @@ package config
 
 import (
 	"os"
-	_ "path/filepath"
 	"strconv"
-	_ "time"
 
 	"github.com/joho/godotenv"
 	_ "github.com/rs/zerolog"
@@ -17,6 +15,26 @@ type Config struct {
 	Cache    *CacheConfig
 	Logging  *LoggingConfig
 	CORS     *CORSConfig
+	JWT      *JWTConfig
+}
+
+// ServerConfig содержит конфигурацию сервера
+type ServerConfig struct {
+	Address string
+}
+
+// DatabaseConfig represents the database configuration
+type DatabaseConfig struct {
+	Host     string
+	Port     int
+	User     string
+	Password string
+	DBName   string
+}
+
+// JWTConfig represents the JWT configuration
+type JWTConfig struct {
+	SecretKey string
 }
 
 // NewConfig создает новую конфигурацию приложения
@@ -37,7 +55,28 @@ func NewConfig() (*Config, error) {
 		Cache:    cacheConfig,
 		Logging:  NewLoggingConfig(),
 		CORS:     NewCORSConfig(),
+		JWT:      &JWTConfig{SecretKey: getEnv("JWT_SECRET_KEY", "your-secret-key")},
 	}, nil
+}
+
+// NewServerConfig создает новую конфигурацию сервера
+func NewServerConfig() *ServerConfig {
+	return &ServerConfig{
+		Address: getEnv("SERVER_ADDRESS", ":8000"),
+	}
+}
+
+// NewDatabaseConfig creates a new database configuration from environment variables
+func NewDatabaseConfig() *DatabaseConfig {
+	port, _ := strconv.Atoi(getEnv("DB_PORT", "3306"))
+
+	return &DatabaseConfig{
+		Host:     getEnv("DB_HOST", "mysql"),
+		Port:     port,
+		User:     getEnv("DB_USER", "root"),
+		Password: getEnv("DB_PASSWORD", ""),
+		DBName:   getEnv("DB_NAME", "booktrading"),
+	}
 }
 
 // getEnv возвращает значение переменной окружения или значение по умолчанию

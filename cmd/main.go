@@ -8,12 +8,11 @@ import (
 	"booktrading/internal/domain/tag"
 	"booktrading/internal/domain/user"
 	"booktrading/internal/pkg/cache"
+	"booktrading/internal/pkg/jwt"
 	"booktrading/internal/pkg/logger"
 	"booktrading/internal/repository/mysql"
 	"booktrading/internal/usecase"
 	"fmt"
-	"github.com/go-chi/chi/v5"
-	"github.com/go-chi/chi/v5/middleware"
 	"net/http"
 	"time"
 )
@@ -55,35 +54,30 @@ func main() {
 	bookRepo := mysql.NewBookRepository(db)
 	tagRepo := mysql.NewTagRepository(db)
 	stateRepo := mysql.NewStateRepository(db)
+	userRepo := mysql.NewUserRepository(db)
+
+	// Инициализация JWT сервиса
+	jwtSvc := jwt.NewService(cfg.JWT.SecretKey)
 
 	// Инициализация usecases
 	bookUsecase := usecase.NewBookUsecase(bookRepo, tagRepo, cache)
 	tagUsecase := usecase.NewTagUsecase(tagRepo, bookRepo, cache)
 	stateUsecase := usecase.NewStateUsecase(stateRepo)
+	userUsecase := usecase.NewUserUsecase(userRepo, jwtSvc)
 
 	// Инициализация HTTP обработчика
-	handler := httpHandler.NewHandler(tagUsecase, bookUsecase, stateUsecase)
+	handler := httpHandler.NewHandler(bookUsecase, tagUsecase, stateUsecase, userUsecase, jwtSvc)
 
 	// Инициализация роутера
-	r := chi.NewRouter()
-
-	// Middleware
-	r.Use(middleware.Logger)
-	r.Use(middleware.Recoverer)
-	r.Use(middleware.CleanPath)
-	r.Use(middleware.GetHead)
-	r.Use(loggerMiddleware)
-
-	// Инициализация маршрутов
-	handler.InitRoutes(r)
+	router := handler.InitRouter()
 
 	// Запуск сервера
 	server := &http.Server{
-		Addr:    fmt.Sprintf(":%d", cfg.Server.Port),
-		Handler: r,
+		Addr:    cfg.Server.Address,
+		Handler: router,
 	}
 
-	logger.Info(fmt.Sprintf("Server is running on port %d", cfg.Server.Port))
+	logger.Info(fmt.Sprintf("Server is running on %s", cfg.Server.Address))
 	if err := server.ListenAndServe(); err != nil {
 		logger.Fatal("Failed to start server", err)
 	}

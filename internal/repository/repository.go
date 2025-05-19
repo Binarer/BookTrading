@@ -5,6 +5,7 @@ import (
 	"booktrading/internal/domain/book"
 	"booktrading/internal/domain/state"
 	"booktrading/internal/domain/tag"
+	"booktrading/internal/domain/user"
 	"database/sql"
 	"strconv"
 )
@@ -36,6 +37,15 @@ type StateRepository interface {
 	GetByID(id uint) (*state.State, error)
 	GetAll() ([]*state.State, error)
 	Update(s *state.State) error
+	Delete(id uint) error
+}
+
+// UserRepository определяет интерфейс для работы с пользователями
+type UserRepository interface {
+	Create(user *user.User) error
+	GetByID(id uint) (*user.User, error)
+	GetByLogin(login string) (*user.User, error)
+	Update(user *user.User) error
 	Delete(id uint) error
 }
 

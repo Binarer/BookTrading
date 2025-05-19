@@ -84,3 +84,11 @@ func (r *BookRepository) AddTags(bookID uint, tagIDs []uint) error {
 
 	return nil
 }
+
+func (r *BookRepository) GetAll() ([]*book.Book, error) {
+	var books []*book.Book
+	if err := r.db.Find(&books).Error; err != nil {
+		return nil, err
+	}
+	return books, nil
+}

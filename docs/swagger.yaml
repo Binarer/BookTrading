@@ -1,0 +1,846 @@
+basePath: /
+definitions:
+  book.Book:
+    description: Модель книги для системы обмена книгами
+    properties:
+      author:
+        description: |-
+          @Description Автор книги
+          @example F. Scott Fitzgerald
+        type: string
+      created_at:
+        description: |-
+          @Description Время создания записи
+          @example 2025-04-28T12:00:00Z
+        type: string
+      description:
+        description: |-
+          @Description Описание книги
+          @example A story of the fabulously wealthy Jay Gatsby and his love for the beautiful Daisy Buchanan.
+        type: string
+      id:
+        description: |-
+          @Description Уникальный идентификатор
+          @example 1
+        type: integer
+      photos:
+        description: |-
+          @Description Фотографии книги в формате base64
+          @example ["data:image/jpeg;base64,/9j/4AAQSkZJRg..."]
+        type: string
+      price:
+        description: |-
+          @Description Цена книги
+          @example 19.99
+        type: number
+      state:
+        allOf:
+        - $ref: '#/definitions/state.State'
+        description: '@Description Состояние книги'
+      state_id:
+        description: |-
+          @Description ID состояния книги
+          @example 1
+        type: integer
+      tags:
+        description: '@Description Теги книги'
+        items:
+          $ref: '#/definitions/tag.Tag'
+        type: array
+      title:
+        description: |-
+          @Description Название книги
+          @example The Great Gatsby
+        type: string
+      updated_at:
+        description: |-
+          @Description Время последнего обновления записи
+          @example 2025-04-28T12:00:00Z
+        type: string
+      user:
+        allOf:
+        - $ref: '#/definitions/user.User'
+        description: '@Description Пользователь-владелец'
+      user_id:
+        description: |-
+          @Description ID пользователя-владельца
+          @example 1
+        type: integer
+    type: object
+  book.CreateBookDTO:
+    description: Данные для создания новой книги
+    properties:
+      author:
+        description: |-
+          @Description Автор книги
+          @example F. Scott Fitzgerald
+        maxLength: 100
+        minLength: 3
+        type: string
+      description:
+        description: |-
+          @Description Описание книги
+          @example A story of the fabulously wealthy Jay Gatsby and his love for the beautiful Daisy Buchanan.
+        maxLength: 1000
+        minLength: 10
+        type: string
+      photos:
+        description: |-
+          @Description Фотографии книги в формате base64
+          @example ["data:image/jpeg;base64,/9j/4AAQSkZJRg..."]
+        items:
+          type: string
+        maxItems: 5
+        minItems: 1
+        type: array
+      state_id:
+        description: |-
+          @Description ID состояния книги
+          @example 1
+        type: integer
+      tag_ids:
+        description: |-
+          @Description ID тегов книги
+          @example [1, 2, 3]
+        items:
+          type: integer
+        maxItems: 5
+        minItems: 1
+        type: array
+      title:
+        description: |-
+          @Description Название книги
+          @example The Great Gatsby
+        maxLength: 100
+        minLength: 3
+        type: string
+    required:
+    - author
+    - description
+    - photos
+    - state_id
+    - tag_ids
+    - title
+    type: object
+  book.UpdateBookDTO:
+    description: Данные для обновления существующей книги
+    properties:
+      author:
+        description: |-
+          @Description Автор книги
+          @example F. Scott Fitzgerald
+        maxLength: 100
+        minLength: 3
+        type: string
+      description:
+        description: |-
+          @Description Описание книги
+          @example A story of the fabulously wealthy Jay Gatsby and his love for the beautiful Daisy Buchanan.
+        maxLength: 1000
+        minLength: 10
+        type: string
+      photos:
+        description: |-
+          @Description Фотографии книги в формате base64
+          @example ["data:image/jpeg;base64,/9j/4AAQSkZJRg..."]
+        items:
+          type: string
+        maxItems: 5
+        minItems: 1
+        type: array
+      state_id:
+        description: |-
+          @Description ID состояния книги
+          @example 1
+        minimum: 1
+        type: integer
+      title:
+        description: |-
+          @Description Название книги
+          @example The Great Gatsby
+        maxLength: 100
+        minLength: 3
+        type: string
+    type: object
+  book.UpdateBookStateDTO:
+    description: Данные для обновления состояния книги
+    properties:
+      state_id:
+        description: |-
+          @Description ID нового состояния книги
+          @example 1
+        minimum: 1
+        type: integer
+    required:
+    - state_id
+    type: object
+  state.CreateStateDTO:
+    description: Данные для создания нового состояния
+    properties:
+      name:
+        description: |-
+          @Description Название состояния
+          @example available
+        maxLength: 50
+        minLength: 3
+        type: string
+    required:
+    - name
+    type: object
+  state.State:
+    description: Модель состояния книги
+    properties:
+      created_at:
+        description: |-
+          @Description Время создания записи
+          @example 2025-04-28T12:00:00Z
+        type: string
+      id:
+        description: |-
+          @Description Уникальный идентификатор
+          @example 1
+        type: integer
+      name:
+        description: |-
+          @Description Название состояния
+          @example available
+        type: string
+      updated_at:
+        description: |-
+          @Description Время последнего обновления записи
+          @example 2025-04-28T12:00:00Z
+        type: string
+    type: object
+  state.UpdateStateDTO:
+    description: Данные для обновления существующего состояния
+    properties:
+      name:
+        description: |-
+          @Description Название состояния
+          @example available
+        maxLength: 50
+        minLength: 3
+        type: string
+    required:
+    - name
+    type: object
+  tag.CreateTagDTO:
+    description: Данные для создания нового тега
+    properties:
+      name:
+        description: |-
+          @Description Название тега
+          @example fiction
+        maxLength: 255
+        minLength: 1
+        type: string
+    required:
+    - name
+    type: object
+  tag.Tag:
+    description: Модель тега для категоризации книг
+    properties:
+      created_at:
+        description: |-
+          @Description Время создания записи
+          @example 2025-04-28T12:00:00Z
+        type: string
+      id:
+        description: |-
+          @Description Уникальный идентификатор
+          @example 1
+        type: integer
+      name:
+        description: |-
+          @Description Название тега
+          @example fiction
+        type: string
+      updated_at:
+        description: |-
+          @Description Время последнего обновления записи
+          @example 2025-04-28T12:00:00Z
+        type: string
+    type: object
+  user.CreateUserDTO:
+    properties:
+      login:
+        maxLength: 50
+        minLength: 3
+        type: string
+      password:
+        minLength: 6
+        type: string
+      username:
+        maxLength: 50
+        minLength: 3
+        type: string
+    required:
+    - login
+    - password
+    - username
+    type: object
+  user.LoginDTO:
+    properties:
+      login:
+        type: string
+      password:
+        type: string
+    required:
+    - login
+    - password
+    type: object
+  user.TokenResponse:
+    properties:
+      token:
+        type: string
+    type: object
+  user.UpdateUserDTO:
+    properties:
+      login:
+        maxLength: 50
+        minLength: 3
+        type: string
+      password:
+        minLength: 6
+        type: string
+      username:
+        maxLength: 50
+        minLength: 3
+        type: string
+    type: object
+  user.User:
+    description: Модель пользователя системы обмена книгами
+    properties:
+      created_at:
+        description: |-
+          @Description Время создания аккаунта
+          @example 2025-04-28T12:00:00Z
+        type: string
+      id:
+        description: |-
+          @Description Уникальный идентификатор
+          @example 1
+        type: integer
+      login:
+        description: |-
+          @Description Логин пользователя
+          @example john_doe
+        type: string
+      updated_at:
+        description: |-
+          @Description Время последнего обновления аккаунта
+          @example 2025-04-28T12:00:00Z
+        type: string
+      username:
+        description: |-
+          @Description Имя пользователя
+          @example john_doe
+        type: string
+    type: object
+host: localhost:8000
+info:
+  contact: {}
+  description: API for book trading system with tag support
+  title: Book Trading API
+  version: "1.0"
+paths:
+  /api/v1/books:
+    get:
+      description: Get a list of all books
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/book.Book'
+            type: array
+      summary: Get all books
+      tags:
+      - books
+    post:
+      consumes:
+      - application/json
+      description: Create a new book with the given details
+      parameters:
+      - description: Book details
+        in: body
+        name: book
+        required: true
+        schema:
+          $ref: '#/definitions/book.CreateBookDTO'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/book.Book'
+      security:
+      - BearerAuth: []
+      summary: Create a new book
+      tags:
+      - books
+  /api/v1/books/{id}:
+    delete:
+      description: Delete a book by ID
+      parameters:
+      - description: Book ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses:
+        "204":
+          description: No Content
+      security:
+      - BearerAuth: []
+      summary: Delete book
+      tags:
+      - books
+    get:
+      description: Get book information by ID
+      parameters:
+      - description: Book ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/book.Book'
+      summary: Get book by ID
+      tags:
+      - books
+    put:
+      consumes:
+      - application/json
+      description: Update book details
+      parameters:
+      - description: Book ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Book details
+        in: body
+        name: book
+        required: true
+        schema:
+          $ref: '#/definitions/book.UpdateBookDTO'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/book.Book'
+      security:
+      - BearerAuth: []
+      summary: Update a book
+      tags:
+      - books
+  /api/v1/books/{id}/state:
+    patch:
+      consumes:
+      - application/json
+      description: Update the state of a book
+      parameters:
+      - description: Book ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: New state
+        in: body
+        name: state
+        required: true
+        schema:
+          $ref: '#/definitions/book.UpdateBookStateDTO'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/book.Book'
+      security:
+      - BearerAuth: []
+      summary: Update book state
+      tags:
+      - books
+  /api/v1/books/{id}/tags:
+    post:
+      consumes:
+      - application/json
+      description: Add tags to an existing book
+      parameters:
+      - description: Book ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Tag IDs
+        in: body
+        name: tagIds
+        required: true
+        schema:
+          items:
+            type: integer
+          type: array
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/book.Book'
+      security:
+      - BearerAuth: []
+      summary: Add tags to book
+      tags:
+      - books
+  /api/v1/books/search:
+    get:
+      description: Search books by tag IDs
+      parameters:
+      - collectionFormat: csv
+        description: Tag IDs
+        in: query
+        items:
+          type: integer
+        name: tagIds
+        required: true
+        type: array
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/book.Book'
+            type: array
+      summary: Search books by tags
+      tags:
+      - books
+  /api/v1/states:
+    get:
+      description: Get list of all book states
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/state.State'
+            type: array
+      summary: Get all states
+      tags:
+      - states
+    post:
+      consumes:
+      - application/json
+      description: Create a new book state
+      parameters:
+      - description: State object
+        in: body
+        name: state
+        required: true
+        schema:
+          $ref: '#/definitions/state.CreateStateDTO'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/state.State'
+      security:
+      - BearerAuth: []
+      summary: Create a new state
+      tags:
+      - states
+  /api/v1/states/{id}:
+    delete:
+      description: Delete a book state
+      parameters:
+      - description: State ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses:
+        "204":
+          description: No Content
+      security:
+      - BearerAuth: []
+      summary: Delete state
+      tags:
+      - states
+    get:
+      description: Get a book state by ID
+      parameters:
+      - description: State ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/state.State'
+      summary: Get state by ID
+      tags:
+      - states
+    put:
+      consumes:
+      - application/json
+      description: Update a book state
+      parameters:
+      - description: State ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: State object
+        in: body
+        name: state
+        required: true
+        schema:
+          $ref: '#/definitions/state.UpdateStateDTO'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/state.State'
+      security:
+      - BearerAuth: []
+      summary: Update state
+      tags:
+      - states
+  /api/v1/tags:
+    get:
+      description: Get list of all tags
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/tag.Tag'
+            type: array
+      summary: Get all tags
+      tags:
+      - tags
+    post:
+      consumes:
+      - application/json
+      description: Create a new tag with the given name
+      parameters:
+      - description: Tag details
+        in: body
+        name: tag
+        required: true
+        schema:
+          $ref: '#/definitions/tag.CreateTagDTO'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/tag.Tag'
+      security:
+      - BearerAuth: []
+      summary: Create a new tag
+      tags:
+      - tags
+  /api/v1/tags/{id}:
+    delete:
+      description: Delete a tag
+      parameters:
+      - description: Tag ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses:
+        "204":
+          description: No Content
+      security:
+      - BearerAuth: []
+      summary: Delete tag
+      tags:
+      - tags
+    get:
+      description: Get tag information by ID
+      parameters:
+      - description: Tag ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/tag.Tag'
+      summary: Get tag by ID
+      tags:
+      - tags
+  /api/v1/tags/popular:
+    get:
+      description: Get list of popular tags
+      parameters:
+      - description: Number of tags to return
+        in: query
+        name: limit
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/tag.Tag'
+            type: array
+      summary: Get popular tags
+      tags:
+      - tags
+  /api/v1/users:
+    get:
+      description: Get a list of all users
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/user.User'
+            type: array
+      security:
+      - BearerAuth: []
+      summary: Get all users
+      tags:
+      - users
+  /api/v1/users/{id}:
+    delete:
+      description: Delete user by ID
+      parameters:
+      - description: User ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses:
+        "204":
+          description: No Content
+      summary: Delete user
+      tags:
+      - users
+    get:
+      description: Get user information by ID
+      parameters:
+      - description: User ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/user.User'
+      summary: Get user by ID
+      tags:
+      - users
+    put:
+      consumes:
+      - application/json
+      description: Update user information
+      parameters:
+      - description: User ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: User update data
+        in: body
+        name: user
+        required: true
+        schema:
+          $ref: '#/definitions/user.UpdateUserDTO'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/user.User'
+      summary: Update user
+      tags:
+      - users
+  /api/v1/users/login:
+    post:
+      consumes:
+      - application/json
+      description: Login user and get JWT token
+      parameters:
+      - description: Login credentials
+        in: body
+        name: credentials
+        required: true
+        schema:
+          $ref: '#/definitions/user.LoginDTO'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/user.TokenResponse'
+      summary: Login user
+      tags:
+      - users
+  /api/v1/users/register:
+    post:
+      consumes:
+      - application/json
+      description: Register a new user in the system
+      parameters:
+      - description: User registration data
+        in: body
+        name: user
+        required: true
+        schema:
+          $ref: '#/definitions/user.CreateUserDTO'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/user.User'
+      summary: Register new user
+      tags:
+      - users
+swagger: "2.0"

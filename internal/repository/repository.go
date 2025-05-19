@@ -45,6 +45,7 @@ type UserRepository interface {
 	Create(user *user.User) error
 	GetByID(id uint) (*user.User, error)
 	GetByLogin(login string) (*user.User, error)
+	GetAll() ([]*user.User, error)
 	Update(user *user.User) error
 	Delete(id uint) error
 }

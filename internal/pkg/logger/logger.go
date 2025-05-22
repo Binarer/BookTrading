@@ -18,11 +18,17 @@ func Init() {
 
 // Info logs an info message
 func Info(message string) {
+	if InfoLogger == nil {
+		Init()
+	}
 	InfoLogger.Println(message)
 }
 
 // Error logs an error message
 func Error(message string, err error) {
+	if ErrorLogger == nil {
+		Init()
+	}
 	ErrorLogger.Printf("%s: %v\n", message, err)
 }
 
@@ -36,7 +42,10 @@ func Warn(msg string, fields ...interface{}) {
 	log.Printf("WARN: %s\n", msg)
 }
 
-// Fatal логирует фатальную ошибку и завершает программу
-func Fatal(msg string, err error, fields ...interface{}) {
-	log.Fatalf("FATAL: %s: %v\n", msg, err)
-} 
+// Fatal logs a fatal error and exits the program
+func Fatal(message string, err error) {
+	if ErrorLogger == nil {
+		Init()
+	}
+	ErrorLogger.Fatalf("%s: %v\n", message, err)
+}

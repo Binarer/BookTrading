@@ -3,17 +3,13 @@ package main
 import (
 	"booktrading/internal/config"
 	httpHandler "booktrading/internal/delivery/http"
-	"booktrading/internal/domain/book"
-	"booktrading/internal/domain/state"
-	"booktrading/internal/domain/tag"
-	"booktrading/internal/domain/user"
-	"booktrading/internal/pkg/cache"
 	"booktrading/internal/pkg/jwt"
 	"booktrading/internal/pkg/logger"
 	"booktrading/internal/repository/mysql"
 	"booktrading/internal/usecase"
 	"fmt"
 	"net/http"
+	"strconv"
 	"time"
 )
 
@@ -27,58 +23,57 @@ func main() {
 	logger.Init()
 
 	// Загрузка конфигурации
-	cfg, err := config.NewConfig()
+	cfg, err := config.Load()
 	if err != nil {
 		logger.Fatal("Failed to load config", err)
 	}
 
-	// Инициализация кеша
-	cache := cache.NewCache(5*time.Minute, 10*time.Minute)
+	// Формирование DSN для подключения к MySQL
+	dsn := fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?parseTime=true",
+		cfg.Database.User,
+		cfg.Database.Password,
+		cfg.Database.Host,
+		cfg.Database.Port,
+		cfg.Database.DBName,
+	)
 
-	// Инициализация репозиториев
-	db, err := mysql.NewConnection(cfg.Database)
+	// Инициализация базы данных с автоматической миграцией
+	db, err := mysql.InitDB(dsn)
 	if err != nil {
-		logger.Fatal("Failed to connect to database", err)
+		logger.Fatal("Failed to initialize database", err)
 	}
-
-	// Автомиграция моделей
-	if err := db.AutoMigrate(
-		&book.Book{},
-		&tag.Tag{},
-		&state.State{},
-		&user.User{},
-	); err != nil {
-		logger.Fatal("Failed to run migrations", err)
-	}
-
-	bookRepo := mysql.NewBookRepository(db)
-	tagRepo := mysql.NewTagRepository(db)
-	stateRepo := mysql.NewStateRepository(db)
-	userRepo := mysql.NewUserRepository(db)
 
 	// Инициализация JWT сервиса
 	jwtSvc := jwt.NewService(cfg.JWT.SecretKey)
 
-	// Инициализация usecases
-	bookUsecase := usecase.NewBookUsecase(bookRepo, tagRepo, cache)
-	tagUsecase := usecase.NewTagUsecase(tagRepo, bookRepo, cache)
-	stateUsecase := usecase.NewStateUsecase(stateRepo)
+	// Инициализация репозиториев
+	userRepo := mysql.NewUserRepository(db)
+	bookRepo := mysql.NewBookRepository(db)
+	tagRepo := mysql.NewTagRepository(db)
+	stateRepo := mysql.NewStateRepository(db)
+
+	// Инициализация use cases
 	userUsecase := usecase.NewUserUsecase(userRepo, jwtSvc)
+	bookUsecase := usecase.NewBookUsecase(bookRepo, tagRepo, nil) // TODO: Add cache
+	tagUsecase := usecase.NewTagUsecase(tagRepo, bookRepo, nil)   // TODO: Add cache
+	stateUsecase := usecase.NewStateUsecase(stateRepo)
 
 	// Инициализация HTTP обработчика
-	handler := httpHandler.NewHandler(bookUsecase, tagUsecase, stateUsecase, userUsecase, jwtSvc)
+	handler := httpHandler.NewHandler(
+		bookUsecase,
+		tagUsecase,
+		stateUsecase,
+		userUsecase,
+		jwtSvc,
+	)
 
 	// Инициализация роутера
 	router := handler.InitRouter()
 
 	// Запуск сервера
-	server := &http.Server{
-		Addr:    cfg.Server.Address,
-		Handler: router,
-	}
-
-	logger.Info(fmt.Sprintf("Server is running on %s", cfg.Server.Address))
-	if err := server.ListenAndServe(); err != nil {
+	addr := cfg.Server.Host + ":" + strconv.Itoa(cfg.Server.Port)
+	logger.Info("Server starting on " + addr)
+	if err := http.ListenAndServe(addr, router); err != nil {
 		logger.Fatal("Failed to start server", err)
 	}
 }

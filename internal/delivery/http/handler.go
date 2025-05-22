@@ -8,6 +8,7 @@ import (
 	"booktrading/internal/pkg/validator"
 	"booktrading/internal/usecase"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"strconv"
 
@@ -109,6 +110,7 @@ func (h *Handler) InitRoutes(r chi.Router) {
 // @Accept json
 // @Produce json
 // @Param tag body tag.CreateTagDTO true "Tag details"
+// @Param Authorization header string true "Bearer {token}"
 // @Success 200 {object} tag.Tag
 // @Security BearerAuth
 // @Router /api/v1/tags [post]
@@ -201,10 +203,19 @@ func (h *Handler) getPopularTags(w http.ResponseWriter, r *http.Request) {
 // @Accept json
 // @Produce json
 // @Param book body book.CreateBookDTO true "Book details"
+// @Param Authorization header string true "Bearer {token}"
 // @Success 200 {object} book.Book
 // @Security BearerAuth
 // @Router /api/v1/books [post]
 func (h *Handler) createBook(w http.ResponseWriter, r *http.Request) {
+	// Получаем ID пользователя из контекста
+	userID, ok := r.Context().Value("user_id").(uint)
+	if !ok {
+		logger.Error("Failed to get user ID from context", errors.New("user ID not found in context"))
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
 	var dto book.CreateBookDTO
 	if err := json.NewDecoder(r.Body).Decode(&dto); err != nil {
 		logger.Error("Failed to decode request body", err)
@@ -224,6 +235,7 @@ func (h *Handler) createBook(w http.ResponseWriter, r *http.Request) {
 		Author:      dto.Author,
 		Description: dto.Description,
 		StateID:     uint(dto.StateID),
+		UserID:      userID, // Связываем книгу с пользователем
 	}
 
 	// Convert tag IDs to uint
@@ -250,6 +262,7 @@ func (h *Handler) createBook(w http.ResponseWriter, r *http.Request) {
 // @Produce json
 // @Param id path int true "Book ID"
 // @Param book body book.UpdateBookDTO true "Book details"
+// @Param Authorization header string true "Bearer {token}"
 // @Success 200 {object} book.Book
 // @Security BearerAuth
 // @Router /api/v1/books/{id} [put]
@@ -356,6 +369,7 @@ func (h *Handler) searchBooksByTags(w http.ResponseWriter, r *http.Request) {
 // @Produce json
 // @Param id path int true "Book ID"
 // @Param tagIds body []int true "Tag IDs"
+// @Param Authorization header string true "Bearer {token}"
 // @Success 200 {object} book.Book
 // @Security BearerAuth
 // @Router /api/v1/books/{id}/tags [post]
@@ -402,6 +416,7 @@ func (h *Handler) addTagsToBook(w http.ResponseWriter, r *http.Request) {
 // @Accept json
 // @Produce json
 // @Param state body state.CreateStateDTO true "State object"
+// @Param Authorization header string true "Bearer {token}"
 // @Success 201 {object} state.State
 // @Security BearerAuth
 // @Router /api/v1/states [post]
@@ -476,6 +491,7 @@ func (h *Handler) getStateByID(w http.ResponseWriter, r *http.Request) {
 // @Produce json
 // @Param id path int true "State ID"
 // @Param state body state.UpdateStateDTO true "State object"
+// @Param Authorization header string true "Bearer {token}"
 // @Success 200 {object} state.State
 // @Security BearerAuth
 // @Router /api/v1/states/{id} [put]
@@ -511,6 +527,7 @@ func (h *Handler) updateState(w http.ResponseWriter, r *http.Request) {
 // @Description Delete a book state
 // @Tags states
 // @Param id path int true "State ID"
+// @Param Authorization header string true "Bearer {token}"
 // @Success 204 "No Content"
 // @Security BearerAuth
 // @Router /api/v1/states/{id} [delete]
@@ -533,6 +550,7 @@ func (h *Handler) deleteState(w http.ResponseWriter, r *http.Request) {
 // @Description Delete a book by ID
 // @Tags books
 // @Param id path int true "Book ID"
+// @Param Authorization header string true "Bearer {token}"
 // @Success 204 "No Content"
 // @Security BearerAuth
 // @Router /api/v1/books/{id} [delete]
@@ -555,6 +573,7 @@ func (h *Handler) deleteBook(w http.ResponseWriter, r *http.Request) {
 // @Description Delete a tag
 // @Tags tags
 // @Param id path int true "Tag ID"
+// @Param Authorization header string true "Bearer {token}"
 // @Success 204 "No Content"
 // @Security BearerAuth
 // @Router /api/v1/tags/{id} [delete]
@@ -598,6 +617,7 @@ func (h *Handler) getAllTags(w http.ResponseWriter, r *http.Request) {
 // @Produce json
 // @Param id path int true "Book ID"
 // @Param state body book.UpdateBookStateDTO true "New state"
+// @Param Authorization header string true "Bearer {token}"
 // @Success 200 {object} book.Book
 // @Security BearerAuth
 // @Router /api/v1/books/{id}/state [patch]
@@ -655,6 +675,7 @@ func (h *Handler) getAllBooks(w http.ResponseWriter, r *http.Request) {
 // @Description Get a list of all users
 // @Tags users
 // @Produce json
+// @Param Authorization header string true "Bearer {token}"
 // @Success 200 {array} user.User
 // @Security BearerAuth
 // @Router /api/v1/users [get]
@@ -668,4 +689,62 @@ func (h *Handler) getAllUsers(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(users)
+}
+
+// @Summary Get user books
+// @Description Get paginated list of user's books
+// @Tags books
+// @Produce json
+// @Param id path int true "User ID"
+// @Param page query int false "Page number (default: 1)"
+// @Param pageSize query int false "Items per page (default: 10, max: 100)"
+// @Param Authorization header string true "Bearer {token}"
+// @Success 200 {object} map[string]interface{} "Returns books and pagination info"
+// @Security BearerAuth
+// @Router /api/v1/users/{id}/books [get]
+func (h *Handler) getUserBooks(w http.ResponseWriter, r *http.Request) {
+	// Получаем ID пользователя из URL
+	userID, err := strconv.ParseUint(chi.URLParam(r, "id"), 10, 32)
+	if err != nil {
+		logger.Error("Invalid user ID", err)
+		http.Error(w, "Invalid user ID", http.StatusBadRequest)
+		return
+	}
+
+	// Получаем параметры пагинации
+	page := 1
+	if pageStr := r.URL.Query().Get("page"); pageStr != "" {
+		if p, err := strconv.Atoi(pageStr); err == nil && p > 0 {
+			page = p
+		}
+	}
+
+	pageSize := 10
+	if pageSizeStr := r.URL.Query().Get("pageSize"); pageSizeStr != "" {
+		if ps, err := strconv.Atoi(pageSizeStr); err == nil && ps > 0 && ps <= 100 {
+			pageSize = ps
+		}
+	}
+
+	// Получаем книги пользователя
+	books, total, err := h.bookUsecase.GetUserBooks(uint(userID), page, pageSize)
+	if err != nil {
+		logger.Error("Failed to get user books", err)
+		http.Error(w, "Failed to get user books", http.StatusInternalServerError)
+		return
+	}
+
+	// Формируем ответ с информацией о пагинации
+	response := map[string]interface{}{
+		"books": books,
+		"pagination": map[string]interface{}{
+			"total":      total,
+			"page":       page,
+			"pageSize":   pageSize,
+			"totalPages": (total + int64(pageSize) - 1) / int64(pageSize),
+		},
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(response)
 }

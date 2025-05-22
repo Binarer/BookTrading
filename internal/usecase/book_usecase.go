@@ -19,6 +19,7 @@ type BookUsecase interface {
 	UpdateBook(id uint, dto *book.UpdateBookDTO) (*book.Book, error)
 	UpdateBookState(id uint, stateID uint) (*book.Book, error)
 	DeleteBook(id uint) error
+	GetUserBooks(userID uint, page, pageSize int) ([]*book.Book, int64, error)
 }
 
 // bookUsecase реализует интерфейс BookUsecase
@@ -224,4 +225,20 @@ func (u *bookUsecase) DeleteBook(id uint) error {
 
 func (u *bookUsecase) GetAllBooks() ([]*book.Book, error) {
 	return u.bookRepo.GetAll()
+}
+
+// GetUserBooks получает книги пользователя с пагинацией
+func (u *bookUsecase) GetUserBooks(userID uint, page, pageSize int) ([]*book.Book, int64, error) {
+	// Валидация параметров пагинации
+	if page < 1 {
+		page = 1
+	}
+	if pageSize < 1 {
+		pageSize = 10
+	}
+	if pageSize > 100 {
+		pageSize = 100
+	}
+
+	return u.bookRepo.GetUserBooks(userID, page, pageSize)
 }

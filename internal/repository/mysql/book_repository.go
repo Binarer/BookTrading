@@ -92,3 +92,25 @@ func (r *BookRepository) GetAll() ([]*book.Book, error) {
 	}
 	return books, nil
 }
+
+func (r *BookRepository) GetUserBooks(userID uint, page, pageSize int) ([]*book.Book, int64, error) {
+	var books []*book.Book
+	var total int64
+
+	// Получаем общее количество книг пользователя
+	if err := r.db.Model(&book.Book{}).Where("user_id = ?", userID).Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+
+	// Получаем книги с пагинацией
+	offset := (page - 1) * pageSize
+	if err := r.db.Preload("Tags").Preload("State").
+		Where("user_id = ?", userID).
+		Offset(offset).
+		Limit(pageSize).
+		Find(&books).Error; err != nil {
+		return nil, 0, err
+	}
+
+	return books, total, nil
+}

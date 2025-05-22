@@ -1,6 +1,7 @@
 package mysql
 
 import (
+	"booktrading/internal/domain/book"
 	"booktrading/internal/domain/user"
 	"booktrading/internal/repository"
 	"gorm.io/gorm"
@@ -26,6 +27,14 @@ func (r *UserRepository) GetByID(id uint) (*user.User, error) {
 		}
 		return nil, err
 	}
+
+	// Загружаем книги пользователя
+	var books []*book.Book
+	if err := r.db.Where("user_id = ?", id).Find(&books).Error; err != nil {
+		return nil, err
+	}
+	u.Books = books
+
 	return &u, nil
 }
 
@@ -60,5 +69,15 @@ func (r *UserRepository) GetAll() ([]*user.User, error) {
 	if err := r.db.Find(&users).Error; err != nil {
 		return nil, err
 	}
+
+	// Загружаем книги для каждого пользователя
+	for _, u := range users {
+		var books []*book.Book
+		if err := r.db.Where("user_id = ?", u.ID).Find(&books).Error; err != nil {
+			return nil, err
+		}
+		u.Books = books
+	}
+
 	return users, nil
 }

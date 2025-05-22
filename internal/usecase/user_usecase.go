@@ -117,15 +117,11 @@ func (u *userUsecase) Update(id uint, dto *user.UpdateUserDTO) (*user.User, erro
 	if dto.Username != "" {
 		existingUser.Username = dto.Username
 	}
-	if dto.Login != "" {
-		existingUser.Login = dto.Login
+	if dto.Description != nil {
+		existingUser.Description = dto.Description
 	}
-	if dto.Password != "" {
-		hashedPassword, err := bcrypt.GenerateFromPassword([]byte(dto.Password), bcrypt.DefaultCost)
-		if err != nil {
-			return nil, err
-		}
-		existingUser.PasswordHash = string(hashedPassword)
+	if dto.Avatar != nil {
+		existingUser.Avatar = dto.Avatar
 	}
 
 	if err := u.userRepo.Update(existingUser); err != nil {

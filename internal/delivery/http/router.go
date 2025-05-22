@@ -38,6 +38,7 @@ func (h *Handler) InitRouter() *chi.Mux {
 			// User routes
 			r.Post("/users/register", h.registerUser)
 			r.Post("/users/login", h.loginUser)
+			r.Get("/users/{id}", h.getUserByID)
 
 			// Book routes
 			r.Get("/books", h.getAllBooks)
@@ -60,7 +61,7 @@ func (h *Handler) InitRouter() *chi.Mux {
 
 			// User routes
 			r.Get("/users", h.getAllUsers)
-			r.Get("/users/{id}", h.getUserByID)
+			r.Get("/users/{id}/books", h.getUserBooks)
 			r.Put("/users/{id}", h.updateUser)
 			r.Delete("/users/{id}", h.deleteUser)
 

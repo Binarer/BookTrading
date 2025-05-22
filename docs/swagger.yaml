@@ -296,12 +296,10 @@ definitions:
     type: object
   user.UpdateUserDTO:
     properties:
-      login:
-        maxLength: 50
-        minLength: 3
+      avatar:
         type: string
-      password:
-        minLength: 6
+      description:
+        maxLength: 1000
         type: string
       username:
         maxLength: 50
@@ -311,10 +309,27 @@ definitions:
   user.User:
     description: Модель пользователя системы обмена книгами
     properties:
+      avatar:
+        description: |-
+          @Description Аватар пользователя в формате base64
+          @example data:image/jpeg;base64,/9j/4AAQSkZJRg...
+        type: string
+      books:
+        description: |-
+          @Description Книги пользователя
+          @example [{"id": 1, "title": "The Great Gatsby"}]
+        items:
+          $ref: '#/definitions/book.Book'
+        type: array
       created_at:
         description: |-
           @Description Время создания аккаунта
           @example 2025-04-28T12:00:00Z
+        type: string
+      description:
+        description: |-
+          @Description Описание пользователя
+          @example Book lover and collector
         type: string
       id:
         description: |-
@@ -370,6 +385,11 @@ paths:
         required: true
         schema:
           $ref: '#/definitions/book.CreateBookDTO'
+      - description: Bearer {token}
+        in: header
+        name: Authorization
+        required: true
+        type: string
       produces:
       - application/json
       responses:
@@ -391,6 +411,11 @@ paths:
         name: id
         required: true
         type: integer
+      - description: Bearer {token}
+        in: header
+        name: Authorization
+        required: true
+        type: string
       responses:
         "204":
           description: No Content
@@ -433,6 +458,11 @@ paths:
         required: true
         schema:
           $ref: '#/definitions/book.UpdateBookDTO'
+      - description: Bearer {token}
+        in: header
+        name: Authorization
+        required: true
+        type: string
       produces:
       - application/json
       responses:
@@ -462,6 +492,11 @@ paths:
         required: true
         schema:
           $ref: '#/definitions/book.UpdateBookStateDTO'
+      - description: Bearer {token}
+        in: header
+        name: Authorization
+        required: true
+        type: string
       produces:
       - application/json
       responses:
@@ -493,6 +528,11 @@ paths:
           items:
             type: integer
           type: array
+      - description: Bearer {token}
+        in: header
+        name: Authorization
+        required: true
+        type: string
       produces:
       - application/json
       responses:
@@ -555,6 +595,11 @@ paths:
         required: true
         schema:
           $ref: '#/definitions/state.CreateStateDTO'
+      - description: Bearer {token}
+        in: header
+        name: Authorization
+        required: true
+        type: string
       produces:
       - application/json
       responses:
@@ -576,6 +621,11 @@ paths:
         name: id
         required: true
         type: integer
+      - description: Bearer {token}
+        in: header
+        name: Authorization
+        required: true
+        type: string
       responses:
         "204":
           description: No Content
@@ -618,6 +668,11 @@ paths:
         required: true
         schema:
           $ref: '#/definitions/state.UpdateStateDTO'
+      - description: Bearer {token}
+        in: header
+        name: Authorization
+        required: true
+        type: string
       produces:
       - application/json
       responses:
@@ -656,6 +711,11 @@ paths:
         required: true
         schema:
           $ref: '#/definitions/tag.CreateTagDTO'
+      - description: Bearer {token}
+        in: header
+        name: Authorization
+        required: true
+        type: string
       produces:
       - application/json
       responses:
@@ -677,6 +737,11 @@ paths:
         name: id
         required: true
         type: integer
+      - description: Bearer {token}
+        in: header
+        name: Authorization
+        required: true
+        type: string
       responses:
         "204":
           description: No Content
@@ -752,6 +817,8 @@ paths:
       responses:
         "204":
           description: No Content
+      security:
+      - BearerAuth: []
       summary: Delete user
       tags:
       - users
@@ -796,9 +863,46 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/user.User'
+      security:
+      - BearerAuth: []
       summary: Update user
       tags:
       - users
+  /api/v1/users/{id}/books:
+    get:
+      description: Get paginated list of user's books
+      parameters:
+      - description: User ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: 'Page number (default: 1)'
+        in: query
+        name: page
+        type: integer
+      - description: 'Items per page (default: 10, max: 100)'
+        in: query
+        name: pageSize
+        type: integer
+      - description: Bearer {token}
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Returns books and pagination info
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Get user books
+      tags:
+      - books
   /api/v1/users/login:
     post:
       consumes:

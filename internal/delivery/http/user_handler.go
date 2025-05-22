@@ -115,6 +115,7 @@ func (h *Handler) getUserByID(w http.ResponseWriter, r *http.Request) {
 // @Param id path int true "User ID"
 // @Param user body user.UpdateUserDTO true "User update data"
 // @Success 200 {object} user.User
+// @Security BearerAuth
 // @Router /api/v1/users/{id} [put]
 func (h *Handler) updateUser(w http.ResponseWriter, r *http.Request) {
 	id, err := strconv.ParseUint(chi.URLParam(r, "id"), 10, 32)
@@ -153,6 +154,7 @@ func (h *Handler) updateUser(w http.ResponseWriter, r *http.Request) {
 // @Tags users
 // @Param id path int true "User ID"
 // @Success 204 "No Content"
+// @Security BearerAuth
 // @Router /api/v1/users/{id} [delete]
 func (h *Handler) deleteUser(w http.ResponseWriter, r *http.Request) {
 	id, err := strconv.ParseUint(chi.URLParam(r, "id"), 10, 32)

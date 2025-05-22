@@ -63,6 +63,13 @@ const docTemplate = `{
                         "schema": {
                             "$ref": "#/definitions/book.CreateBookDTO"
                         }
+                    },
+                    {
+                        "type": "string",
+                        "description": "Bearer {token}",
+                        "name": "Authorization",
+                        "in": "header",
+                        "required": true
                     }
                 ],
                 "responses": {
@@ -172,6 +179,13 @@ const docTemplate = `{
                         "schema": {
                             "$ref": "#/definitions/book.UpdateBookDTO"
                         }
+                    },
+                    {
+                        "type": "string",
+                        "description": "Bearer {token}",
+                        "name": "Authorization",
+                        "in": "header",
+                        "required": true
                     }
                 ],
                 "responses": {
@@ -200,6 +214,13 @@ const docTemplate = `{
                         "description": "Book ID",
                         "name": "id",
                         "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Bearer {token}",
+                        "name": "Authorization",
+                        "in": "header",
                         "required": true
                     }
                 ],
@@ -244,6 +265,13 @@ const docTemplate = `{
                         "schema": {
                             "$ref": "#/definitions/book.UpdateBookStateDTO"
                         }
+                    },
+                    {
+                        "type": "string",
+                        "description": "Bearer {token}",
+                        "name": "Authorization",
+                        "in": "header",
+                        "required": true
                     }
                 ],
                 "responses": {
@@ -293,6 +321,13 @@ const docTemplate = `{
                                 "type": "integer"
                             }
                         }
+                    },
+                    {
+                        "type": "string",
+                        "description": "Bearer {token}",
+                        "name": "Authorization",
+                        "in": "header",
+                        "required": true
                     }
                 ],
                 "responses": {
@@ -353,6 +388,13 @@ const docTemplate = `{
                         "schema": {
                             "$ref": "#/definitions/state.CreateStateDTO"
                         }
+                    },
+                    {
+                        "type": "string",
+                        "description": "Bearer {token}",
+                        "name": "Authorization",
+                        "in": "header",
+                        "required": true
                     }
                 ],
                 "responses": {
@@ -426,6 +468,13 @@ const docTemplate = `{
                         "schema": {
                             "$ref": "#/definitions/state.UpdateStateDTO"
                         }
+                    },
+                    {
+                        "type": "string",
+                        "description": "Bearer {token}",
+                        "name": "Authorization",
+                        "in": "header",
+                        "required": true
                     }
                 ],
                 "responses": {
@@ -454,6 +503,13 @@ const docTemplate = `{
                         "description": "State ID",
                         "name": "id",
                         "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Bearer {token}",
+                        "name": "Authorization",
+                        "in": "header",
                         "required": true
                     }
                 ],
@@ -512,6 +568,13 @@ const docTemplate = `{
                         "schema": {
                             "$ref": "#/definitions/tag.CreateTagDTO"
                         }
+                    },
+                    {
+                        "type": "string",
+                        "description": "Bearer {token}",
+                        "name": "Authorization",
+                        "in": "header",
+                        "required": true
                     }
                 ],
                 "responses": {
@@ -600,6 +663,13 @@ const docTemplate = `{
                         "description": "Tag ID",
                         "name": "id",
                         "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Bearer {token}",
+                        "name": "Authorization",
+                        "in": "header",
                         "required": true
                     }
                 ],
@@ -735,6 +805,11 @@ const docTemplate = `{
                 }
             },
             "put": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
                 "description": "Update user information",
                 "consumes": [
                     "application/json"
@@ -774,6 +849,11 @@ const docTemplate = `{
                 }
             },
             "delete": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
                 "description": "Delete user by ID",
                 "tags": [
                     "users"
@@ -791,6 +871,60 @@ const docTemplate = `{
                 "responses": {
                     "204": {
                         "description": "No Content"
+                    }
+                }
+            }
+        },
+        "/api/v1/users/{id}/books": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Get paginated list of user's books",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "books"
+                ],
+                "summary": "Get user books",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "User ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Page number (default: 1)",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Items per page (default: 10, max: 100)",
+                        "name": "pageSize",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Bearer {token}",
+                        "name": "Authorization",
+                        "in": "header",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Returns books and pagination info",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
                     }
                 }
             }
@@ -1111,14 +1245,12 @@ const docTemplate = `{
         "user.UpdateUserDTO": {
             "type": "object",
             "properties": {
-                "login": {
-                    "type": "string",
-                    "maxLength": 50,
-                    "minLength": 3
+                "avatar": {
+                    "type": "string"
                 },
-                "password": {
+                "description": {
                     "type": "string",
-                    "minLength": 6
+                    "maxLength": 1000
                 },
                 "username": {
                     "type": "string",
@@ -1131,8 +1263,23 @@ const docTemplate = `{
             "description": "Модель пользователя системы обмена книгами",
             "type": "object",
             "properties": {
+                "avatar": {
+                    "description": "@Description Аватар пользователя в формате base64\n@example data:image/jpeg;base64,/9j/4AAQSkZJRg...",
+                    "type": "string"
+                },
+                "books": {
+                    "description": "@Description Книги пользователя\n@example [{\"id\": 1, \"title\": \"The Great Gatsby\"}]",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/book.Book"
+                    }
+                },
                 "created_at": {
                     "description": "@Description Время создания аккаунта\n@example 2025-04-28T12:00:00Z",
+                    "type": "string"
+                },
+                "description": {
+                    "description": "@Description Описание пользователя\n@example Book lover and collector",
                     "type": "string"
                 },
                 "id": {

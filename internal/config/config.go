@@ -1,26 +1,27 @@
 package config
 
 import (
-	"os"
-	"strconv"
-
+	"booktrading/internal/pkg/logger"
 	"github.com/joho/godotenv"
 	_ "github.com/rs/zerolog"
+	"os"
+	"strconv"
 )
 
 // Config содержит все конфигурации приложения
 type Config struct {
-	Server   *ServerConfig
-	Database *DatabaseConfig
+	Server   ServerConfig
+	Database DatabaseConfig
 	Cache    *CacheConfig
 	Logging  *LoggingConfig
 	CORS     *CORSConfig
-	JWT      *JWTConfig
+	JWT      JWTConfig
 }
 
 // ServerConfig содержит конфигурацию сервера
 type ServerConfig struct {
-	Address string
+	Host string
+	Port int
 }
 
 // DatabaseConfig represents the database configuration
@@ -37,10 +38,25 @@ type JWTConfig struct {
 	SecretKey string
 }
 
-// NewConfig создает новую конфигурацию приложения
-func NewConfig() (*Config, error) {
+// Load загружает конфигурацию из переменных окружения
+func Load() (*Config, error) {
 	// Загрузка переменных окружения из .env файла
 	if err := godotenv.Load(); err != nil {
+		logger.Error("Error loading .env file", err)
+		return nil, err
+	}
+
+	// Загрузка конфигурации сервера
+	serverPort, err := strconv.Atoi(getEnv("SERVER_PORT", "8000"))
+	if err != nil {
+		logger.Error("Failed to parse SERVER_PORT", err)
+		return nil, err
+	}
+
+	// Загрузка конфигурации базы данных
+	dbPort, err := strconv.Atoi(getEnv("DB_PORT", "3306"))
+	if err != nil {
+		logger.Error("Failed to parse DB_PORT", err)
 		return nil, err
 	}
 
@@ -50,49 +66,50 @@ func NewConfig() (*Config, error) {
 	}
 
 	return &Config{
-		Server:   NewServerConfig(),
-		Database: NewDatabaseConfig(),
-		Cache:    cacheConfig,
-		Logging:  NewLoggingConfig(),
-		CORS:     NewCORSConfig(),
-		JWT:      &JWTConfig{SecretKey: getEnv("JWT_SECRET_KEY", "your-secret-key")},
+		Server: ServerConfig{
+			Host: getEnv("SERVER_HOST", "localhost"),
+			Port: serverPort,
+		},
+		Database: DatabaseConfig{
+			Host:     getEnv("DB_HOST", "localhost"),
+			Port:     dbPort,
+			User:     getEnv("DB_USER", "root"),
+			Password: getEnv("DB_PASSWORD", ""),
+			DBName:   getEnv("DB_NAME", "booktrading"),
+		},
+		Cache:   cacheConfig,
+		Logging: NewLoggingConfig(),
+		CORS:    NewCORSConfig(),
+		JWT:     JWTConfig{SecretKey: getEnv("JWT_SECRET_KEY", "your-secret-key-here")},
 	}, nil
 }
 
 // NewServerConfig создает новую конфигурацию сервера
-func NewServerConfig() *ServerConfig {
-	return &ServerConfig{
-		Address: getEnv("SERVER_ADDRESS", ":8000"),
+func NewServerConfig() ServerConfig {
+	port, _ := strconv.Atoi(getEnv("SERVER_PORT", "8000"))
+	return ServerConfig{
+		Host: getEnv("SERVER_HOST", "localhost"),
+		Port: port,
 	}
 }
 
 // NewDatabaseConfig creates a new database configuration from environment variables
-func NewDatabaseConfig() *DatabaseConfig {
-	port, _ := strconv.Atoi(getEnv("DB_PORT", "3306"))
-
-	return &DatabaseConfig{
-		Host:     getEnv("DB_HOST", "mysql"),
-		Port:     port,
+func NewDatabaseConfig() DatabaseConfig {
+	dbPort, _ := strconv.Atoi(getEnv("DB_PORT", "3306"))
+	return DatabaseConfig{
+		Host:     getEnv("DB_HOST", "localhost"),
+		Port:     dbPort,
 		User:     getEnv("DB_USER", "root"),
-		Password: getEnv("DB_PASSWORD", ""),
+		Password: getEnv("DB_PASSWORD", "root"),
 		DBName:   getEnv("DB_NAME", "booktrading"),
 	}
 }
 
-// getEnv возвращает значение переменной окружения или значение по умолчанию
+// getEnv получает значение переменной окружения или возвращает значение по умолчанию
 func getEnv(key, defaultValue string) string {
-	if value, exists := os.LookupEnv(key); exists {
-		return value
+	value := os.Getenv(key)
+	if value == "" {
+		return defaultValue
 	}
-	return defaultValue
-}
-
-// getEnvInt получает целочисленное значение переменной окружения или возвращает значение по умолчанию
-func getEnvInt(key string, defaultValue int) int {
-	if value, exists := os.LookupEnv(key); exists {
-		if intValue, err := strconv.Atoi(value); err == nil {
-			return intValue
-		}
-	}
-	return defaultValue
+	return value
 }

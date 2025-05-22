@@ -18,6 +18,7 @@ type BookRepository interface {
 	AddTags(bookID uint, tagIDs []uint) error
 	Update(book *book.Book) error
 	Delete(id uint) error
+	GetUserBooks(userID uint, page, pageSize int) ([]*book.Book, int64, error)
 }
 
 // TagRepository определяет интерфейс для работы с тегами

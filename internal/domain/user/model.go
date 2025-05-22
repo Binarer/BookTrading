@@ -20,6 +20,18 @@ type User struct {
 	// @Description Хеш пароля (не отображается в JSON)
 	PasswordHash string `gorm:"size:255;not null" json:"-"`
 
+	// @Description Описание пользователя
+	// @example Book lover and collector
+	Description *string `gorm:"type:text" json:"description"`
+
+	// @Description Аватар пользователя в формате base64
+	// @example data:image/jpeg;base64,/9j/4AAQSkZJRg...
+	Avatar *string `gorm:"type:text" json:"avatar"`
+
+	// @Description Книги пользователя
+	// @example [{"id": 1, "title": "The Great Gatsby"}]
+	Books interface{} `gorm:"-" json:"books"`
+
 	// @Description Время создания аккаунта
 	// @example 2025-04-28T12:00:00Z
 	CreatedAt time.Time `json:"created_at"`
@@ -43,9 +55,9 @@ type CreateUserDTO struct {
 
 // UpdateUserDTO представляет данные для обновления пользователя
 type UpdateUserDTO struct {
-	Username string `json:"username" validate:"omitempty,min=3,max=50"`
-	Login    string `json:"login" validate:"omitempty,min=3,max=50"`
-	Password string `json:"password" validate:"omitempty,min=6"`
+	Username    string  `json:"username" validate:"omitempty,min=3,max=50"`
+	Description *string `json:"description" validate:"omitempty,max=1000"`
+	Avatar      *string `json:"avatar" validate:"omitempty,base64"`
 }
 
 // LoginDTO представляет данные для входа

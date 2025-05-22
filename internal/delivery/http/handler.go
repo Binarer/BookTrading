@@ -423,17 +423,22 @@ func (h *Handler) addTagsToBook(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) createState(w http.ResponseWriter, r *http.Request) {
 	var dto state.CreateStateDTO
 	if err := json.NewDecoder(r.Body).Decode(&dto); err != nil {
+		logger.Error("Failed to decode request body", err)
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
 		return
 	}
 
+	logger.Info("Creating state with name: " + dto.Name)
+
 	if err := h.validate.Struct(dto); err != nil {
+		logger.Error("Validation failed", err)
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
 	s, err := h.stateUsecase.CreateState(&dto)
 	if err != nil {
+		logger.Error("Failed to create state", err)
 		http.Error(w, "Failed to create state", http.StatusInternalServerError)
 		return
 	}

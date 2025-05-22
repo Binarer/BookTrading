@@ -2,7 +2,9 @@ package jwt
 
 import (
 	"booktrading/internal/domain/user"
+	"booktrading/internal/pkg/logger"
 	"errors"
+	"fmt"
 	"github.com/golang-jwt/jwt/v5"
 	"time"
 )
@@ -43,11 +45,15 @@ func (s *Service) GenerateToken(user *user.User) (string, error) {
 }
 
 func (s *Service) ValidateToken(tokenString string) (*Claims, error) {
+	logger.Info("Starting token validation")
+
 	token, err := jwt.ParseWithClaims(tokenString, &Claims{}, func(token *jwt.Token) (interface{}, error) {
+		logger.Info("Using secret key for validation")
 		return s.secretKey, nil
 	})
 
 	if err != nil {
+		logger.Error("Token validation failed", err)
 		if errors.Is(err, jwt.ErrTokenExpired) {
 			return nil, ErrExpiredToken
 		}
@@ -55,8 +61,10 @@ func (s *Service) ValidateToken(tokenString string) (*Claims, error) {
 	}
 
 	if claims, ok := token.Claims.(*Claims); ok && token.Valid {
+		logger.Info(fmt.Sprintf("Token validation successful for user ID: %d", claims.UserID))
 		return claims, nil
 	}
 
+	logger.Error("Token claims validation failed", nil)
 	return nil, ErrInvalidToken
 }

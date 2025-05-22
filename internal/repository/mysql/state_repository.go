@@ -2,6 +2,8 @@ package mysql
 
 import (
 	"booktrading/internal/domain/state"
+	"book
+	"fmt"
 	"gorm.io/gorm"
 )
 
@@ -14,7 +16,15 @@ func NewStateRepository(db *gorm.DB) *StateRepository {
 }
 
 func (r *StateRepository) Create(s *state.State) error {
-	return r.db.Create(s).Error
+	logger.Info("Creating state in repository with name: " + s.Name)
+
+	if err := r.db.Create(s).Error; err != nil {
+		logger.Error("Failed to create state in database", err)
+		return err
+	}
+
+	logger.Info("State created successfully in database with ID: " + fmt.Sprintf("%d", s.ID))
+	return nil
 }
 
 func (r *StateRepository) GetByID(id uint) (*state.State, error) {
@@ -39,4 +49,4 @@ func (r *StateRepository) Update(s *state.State) error {
 
 func (r *StateRepository) Delete(id uint) error {
 	return r.db.Delete(&state.State{}, id).Error
-} 
+}

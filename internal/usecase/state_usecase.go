@@ -2,7 +2,9 @@ package usecase
 
 import (
 	"booktrading/internal/domain/state"
+	"booktrading/internal/pkg/logger"
 	"booktrading/internal/repository"
+	"fmt"
 )
 
 // StateUsecase определяет интерфейс для работы с состояниями книг
@@ -28,14 +30,18 @@ func NewStateUsecase(stateRepo repository.StateRepository) StateUsecase {
 
 // CreateState создает новое состояние
 func (u *stateUsecase) CreateState(dto *state.CreateStateDTO) (*state.State, error) {
+	logger.Info("Creating state in usecase with name: " + dto.Name)
+
 	s := &state.State{
 		Name: dto.Name,
 	}
 
 	if err := u.stateRepo.Create(s); err != nil {
+		logger.Error("Failed to create state in repository", err)
 		return nil, err
 	}
 
+	logger.Info("State created successfully with ID: " + fmt.Sprintf("%d", s.ID))
 	return s, nil
 }
 
@@ -68,4 +74,4 @@ func (u *stateUsecase) UpdateState(id uint, dto *state.UpdateStateDTO) (*state.S
 // DeleteState удаляет состояние по ID
 func (u *stateUsecase) DeleteState(id uint) error {
 	return u.stateRepo.Delete(id)
-} 
+}

@@ -3,6 +3,7 @@ package main
 import (
 	"booktrading/internal/config"
 	httpHandler "booktrading/internal/delivery/http"
+	"booktrading/internal/pkg/cache"
 	"booktrading/internal/pkg/jwt"
 	"booktrading/internal/pkg/logger"
 	"booktrading/internal/repository/mysql"
@@ -43,6 +44,9 @@ func main() {
 		logger.Fatal("Failed to initialize database", err)
 	}
 
+	// Инициализация кэша
+	cacheInstance := cache.NewCache(cfg.Cache.TTL, cfg.Cache.CleanupInterval)
+
 	// Инициализация JWT сервиса
 	jwtSvc := jwt.NewService(cfg.JWT.SecretKey)
 
@@ -54,8 +58,8 @@ func main() {
 
 	// Инициализация use cases
 	userUsecase := usecase.NewUserUsecase(userRepo, jwtSvc)
-	bookUsecase := usecase.NewBookUsecase(bookRepo, tagRepo, nil) // TODO: Add cache
-	tagUsecase := usecase.NewTagUsecase(tagRepo, bookRepo, nil)   // TODO: Add cache
+	bookUsecase := usecase.NewBookUsecase(bookRepo, tagRepo, cacheInstance)
+	tagUsecase := usecase.NewTagUsecase(tagRepo, bookRepo, cacheInstance)
 	stateUsecase := usecase.NewStateUsecase(stateRepo)
 
 	// Инициализация HTTP обработчика

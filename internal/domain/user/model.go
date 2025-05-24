@@ -10,11 +10,11 @@ import (
 type User struct {
 	gorm.Base
 	ID        uint      `json:"id" gorm:"primaryKey"`
-	Login     string    `json:"login" gorm:"uniqueIndex;not null"`
-	Username  string    `json:"username" gorm:"not null"`          // Отображаемое имя пользователя
-	Password  string    `json:"-" gorm:"not null"`                 // Не отображаем в JSON
-	Avatar    string    `json:"avatar,omitempty" gorm:"type:text"` // Base64 строка для аватарки
-	BookIDs   []uint    `json:"book_ids" gorm:"-"`                 // Игнорируем в GORM
+	Login     string    `json:"login" gorm:"type:varchar(50);uniqueIndex;not null"`
+	Username  string    `json:"username" gorm:"type:varchar(50);not null"` // Отображаемое имя пользователя
+	Password  string    `json:"-" gorm:"type:varchar(255);not null"`       // Не отображаем в JSON
+	Avatar    string    `json:"avatar,omitempty" gorm:"type:text"`         // Base64 строка для аватарки
+	BookIDs   []uint    `json:"book_ids" gorm:"-"`                         // Игнорируем в GORM
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
 }

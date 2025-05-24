@@ -11,8 +11,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
+
 	"gorm.io/gorm"
-	
 )
 
 type BookRepository struct {

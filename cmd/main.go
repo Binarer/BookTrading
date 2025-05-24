@@ -33,7 +33,6 @@ import (
 // @in header
 // @name X-Refresh-Token
 // @description Refresh token for getting new access token.
-
 func main() {
 	cfg, err := config.Load()
 	if err != nil {

@@ -1,0 +1,1075 @@
+basePath: /
+definitions:
+  book.Book:
+    properties:
+      author:
+        type: string
+      created_at:
+        type: string
+      description:
+        type: string
+      id:
+        type: integer
+      photos:
+        description: Игнорируем в GORM
+        items:
+          type: string
+        type: array
+      state:
+        $ref: '#/definitions/state.State'
+      state_id:
+        type: integer
+      tags:
+        items:
+          $ref: '#/definitions/tag.Tag'
+        type: array
+      title:
+        type: string
+      updated_at:
+        type: string
+      user:
+        $ref: '#/definitions/user.User'
+      user_id:
+        type: integer
+    type: object
+  book.CreateBookDTO:
+    properties:
+      author:
+        type: string
+      description:
+        type: string
+      photos:
+        items:
+          type: string
+        type: array
+      state_id:
+        type: integer
+      tag_ids:
+        items:
+          type: integer
+        type: array
+      title:
+        type: string
+      user_id:
+        type: integer
+    required:
+    - author
+    - state_id
+    - title
+    - user_id
+    type: object
+  book.UpdateBookDTO:
+    properties:
+      author:
+        type: string
+      description:
+        type: string
+      photos:
+        items:
+          type: string
+        type: array
+      state_id:
+        type: integer
+      tag_ids:
+        items:
+          type: integer
+        type: array
+      title:
+        type: string
+    type: object
+  book.UpdateBookStateDTO:
+    description: Данные для обновления состояния книги
+    properties:
+      state_id:
+        description: |-
+          @Description ID нового состояния книги
+          @example 1
+        minimum: 1
+        type: integer
+    required:
+    - state_id
+    type: object
+  http.ErrorResponse:
+    description: Структура для возврата ошибок API
+    properties:
+      error:
+        example: Error message
+        type: string
+    type: object
+  jwt.TokenPair:
+    properties:
+      access_token:
+        type: string
+      expires_in:
+        type: integer
+      refresh_token:
+        type: string
+    type: object
+  state.CreateStateDTO:
+    description: Данные для создания нового состояния
+    properties:
+      name:
+        description: |-
+          @Description Название состояния
+          @example available
+        maxLength: 50
+        minLength: 3
+        type: string
+    required:
+    - name
+    type: object
+  state.State:
+    description: Модель состояния книги
+    properties:
+      created_at:
+        description: |-
+          @Description Время создания записи
+          @example 2025-04-28T12:00:00Z
+        type: string
+      id:
+        description: |-
+          @Description Уникальный идентификатор
+          @example 1
+        type: integer
+      name:
+        description: |-
+          @Description Название состояния
+          @example available
+        type: string
+      updated_at:
+        description: |-
+          @Description Время последнего обновления записи
+          @example 2025-04-28T12:00:00Z
+        type: string
+    type: object
+  state.UpdateStateDTO:
+    description: Данные для обновления существующего состояния
+    properties:
+      name:
+        description: |-
+          @Description Название состояния
+          @example available
+        maxLength: 50
+        minLength: 3
+        type: string
+    required:
+    - name
+    type: object
+  tag.CreateTagDTO:
+    description: Данные для создания нового тега
+    properties:
+      name:
+        description: |-
+          @Description Название тега
+          @example fiction
+        maxLength: 255
+        minLength: 1
+        type: string
+    required:
+    - name
+    type: object
+  tag.Tag:
+    description: Модель тега для категоризации книг
+    properties:
+      created_at:
+        description: |-
+          @Description Время создания записи
+          @example 2025-04-28T12:00:00Z
+        type: string
+      id:
+        description: |-
+          @Description Уникальный идентификатор
+          @example 1
+        type: integer
+      name:
+        description: |-
+          @Description Название тега
+          @example fiction
+        type: string
+      updated_at:
+        description: |-
+          @Description Время последнего обновления записи
+          @example 2025-04-28T12:00:00Z
+        type: string
+    type: object
+  tag.UpdateTagDTO:
+    description: Данные для обновления существующего тега
+    properties:
+      name:
+        description: |-
+          @Description Название тега
+          @example fiction
+        maxLength: 255
+        minLength: 1
+        type: string
+    type: object
+  user.CreateUserDTO:
+    properties:
+      login:
+        maxLength: 50
+        minLength: 3
+        type: string
+      password:
+        maxLength: 50
+        minLength: 6
+        type: string
+      username:
+        description: Отображаемое имя пользователя
+        maxLength: 50
+        minLength: 2
+        type: string
+    required:
+    - login
+    - password
+    - username
+    type: object
+  user.LoginDTO:
+    properties:
+      login:
+        type: string
+      password:
+        type: string
+    required:
+    - login
+    - password
+    type: object
+  user.TokenResponse:
+    properties:
+      refresh_token:
+        type: string
+      token:
+        type: string
+    type: object
+  user.UpdateUserDTO:
+    properties:
+      avatar:
+        description: Base64 строка для аватарки
+        type: string
+      login:
+        maxLength: 50
+        minLength: 3
+        type: string
+      username:
+        description: Отображаемое имя пользователя
+        maxLength: 50
+        minLength: 2
+        type: string
+    type: object
+  user.User:
+    description: Модель пользователя системы обмена книгами
+    properties:
+      avatar:
+        description: Base64 строка для аватарки
+        type: string
+      book_ids:
+        description: Игнорируем в GORM
+        items:
+          type: integer
+        type: array
+      created_at:
+        type: string
+      id:
+        type: integer
+      login:
+        type: string
+      updated_at:
+        type: string
+      username:
+        description: Отображаемое имя пользователя
+        type: string
+    type: object
+host: localhost:8000
+info:
+  contact: {}
+  description: API для обмена книгами
+  title: Book Trading API
+  version: "1.0"
+paths:
+  /api/v1/auth/refresh:
+    post:
+      consumes:
+      - application/json
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/jwt.TokenPair'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/http.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/http.ErrorResponse'
+      security:
+      - RefreshToken: []
+      summary: Refresh access token
+      tags:
+      - Auth
+  /api/v1/books:
+    get:
+      description: Get a list of all books with pagination
+      parameters:
+      - description: 'Page number (default: 1)'
+        in: query
+        name: page
+        type: integer
+      - description: 'Items per page (default: 10, max: 100)'
+        in: query
+        name: pageSize
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Returns books and pagination info
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Get all books
+      tags:
+      - books
+    post:
+      consumes:
+      - application/json
+      description: Create a new book with the given details
+      parameters:
+      - description: Book details
+        in: body
+        name: book
+        required: true
+        schema:
+          $ref: '#/definitions/book.CreateBookDTO'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/book.Book'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/http.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/http.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/http.ErrorResponse'
+      security:
+      - Bearer: []
+      summary: Create a new book
+      tags:
+      - books
+      x-tryItOutEnabled: true
+      x-validateRequest: true
+      x-validateResponse: true
+  /api/v1/books/{id}:
+    delete:
+      description: Delete a book by ID
+      parameters:
+      - description: Book ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses:
+        "204":
+          description: No Content
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/http.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/http.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/http.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/http.ErrorResponse'
+      security:
+      - Bearer: []
+      summary: Delete book
+      tags:
+      - books
+    get:
+      description: Get book information by ID
+      parameters:
+      - description: Book ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/book.Book'
+      summary: Get book by ID
+      tags:
+      - books
+    put:
+      consumes:
+      - application/json
+      description: Update book details
+      parameters:
+      - description: Book ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Book details
+        in: body
+        name: book
+        required: true
+        schema:
+          $ref: '#/definitions/book.UpdateBookDTO'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/book.Book'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/http.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/http.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/http.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/http.ErrorResponse'
+      security:
+      - Bearer: []
+      summary: Update a book
+      tags:
+      - books
+      x-tryItOutEnabled: true
+      x-validateRequest: true
+      x-validateResponse: true
+  /api/v1/books/{id}/state:
+    patch:
+      consumes:
+      - application/json
+      description: Update the state of a book
+      parameters:
+      - description: Book ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: New state
+        in: body
+        name: state
+        required: true
+        schema:
+          $ref: '#/definitions/book.UpdateBookStateDTO'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/book.Book'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/http.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/http.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/http.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/http.ErrorResponse'
+      security:
+      - Bearer: []
+      summary: Update book state
+      tags:
+      - books
+  /api/v1/books/{id}/tags:
+    post:
+      consumes:
+      - application/json
+      description: Add tags to an existing book
+      parameters:
+      - description: Book ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Tag IDs
+        in: body
+        name: tagIds
+        required: true
+        schema:
+          items:
+            type: integer
+          type: array
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/book.Book'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/http.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/http.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/http.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/http.ErrorResponse'
+      security:
+      - Bearer: []
+      summary: Add tags to book
+      tags:
+      - books
+  /api/v1/books/search:
+    get:
+      description: Search books by tag IDs
+      parameters:
+      - collectionFormat: csv
+        description: Tag IDs
+        in: query
+        items:
+          type: integer
+        name: tagIds
+        required: true
+        type: array
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/book.Book'
+            type: array
+      summary: Search books by tags
+      tags:
+      - books
+  /api/v1/states:
+    get:
+      description: Get list of all book states
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/state.State'
+            type: array
+      summary: Get all states
+      tags:
+      - states
+    post:
+      consumes:
+      - application/json
+      description: Create a new book state
+      parameters:
+      - description: State object
+        in: body
+        name: state
+        required: true
+        schema:
+          $ref: '#/definitions/state.CreateStateDTO'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/state.State'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/http.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/http.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/http.ErrorResponse'
+      security:
+      - Bearer: []
+      summary: Create a new state
+      tags:
+      - states
+  /api/v1/states/{id}:
+    delete:
+      description: Delete a book state
+      parameters:
+      - description: State ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses:
+        "204":
+          description: No Content
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/http.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/http.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/http.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/http.ErrorResponse'
+      security:
+      - Bearer: []
+      summary: Delete state
+      tags:
+      - states
+    get:
+      description: Get a book state by ID
+      parameters:
+      - description: State ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/state.State'
+      summary: Get state by ID
+      tags:
+      - states
+    put:
+      consumes:
+      - application/json
+      description: Update a book state
+      parameters:
+      - description: State ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: State object
+        in: body
+        name: state
+        required: true
+        schema:
+          $ref: '#/definitions/state.UpdateStateDTO'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/state.State'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/http.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/http.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/http.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/http.ErrorResponse'
+      security:
+      - Bearer: []
+      summary: Update state
+      tags:
+      - states
+  /api/v1/tags:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/tag.Tag'
+            type: array
+      summary: Get all tags
+      tags:
+      - Tags
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Tag details
+        in: body
+        name: tag
+        required: true
+        schema:
+          $ref: '#/definitions/tag.CreateTagDTO'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/tag.Tag'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/http.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/http.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/http.ErrorResponse'
+      security:
+      - Bearer: []
+      summary: Create tag
+      tags:
+      - Tags
+      x-tryItOutEnabled: true
+      x-validateRequest: true
+      x-validateResponse: true
+  /api/v1/tags/{id}:
+    delete:
+      parameters:
+      - description: Tag ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses:
+        "204":
+          description: No Content
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/http.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/http.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/http.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/http.ErrorResponse'
+      security:
+      - Bearer: []
+      summary: Delete tag
+      tags:
+      - Tags
+    get:
+      parameters:
+      - description: Tag ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/tag.Tag'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/http.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/http.ErrorResponse'
+      summary: Get tag
+      tags:
+      - Tags
+    put:
+      consumes:
+      - application/json
+      parameters:
+      - description: Tag ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Tag details
+        in: body
+        name: tag
+        required: true
+        schema:
+          $ref: '#/definitions/tag.UpdateTagDTO'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/tag.Tag'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/http.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/http.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/http.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/http.ErrorResponse'
+      security:
+      - Bearer: []
+      summary: Update tag
+      tags:
+      - Tags
+  /api/v1/tags/popular:
+    get:
+      parameters:
+      - description: Number of tags
+        in: query
+        name: limit
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/tag.Tag'
+            type: array
+      summary: Get popular tags
+      tags:
+      - Tags
+  /api/v1/users:
+    get:
+      description: Get a paginated list of users
+      parameters:
+      - description: 'Page number (default: 1)'
+        in: query
+        name: page
+        type: integer
+      - description: 'Page size (default: 10)'
+        in: query
+        name: page_size
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Users and total count
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Get all users
+      tags:
+      - users
+  /api/v1/users/{id}:
+    delete:
+      description: Delete user by ID
+      parameters:
+      - description: User ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses:
+        "204":
+          description: No Content
+      security:
+      - BearerAuth: []
+      summary: Delete user
+      tags:
+      - users
+    get:
+      description: Get user information by ID
+      parameters:
+      - description: User ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/user.User'
+      summary: Get user by ID
+      tags:
+      - users
+    put:
+      consumes:
+      - application/json
+      description: Update user information
+      parameters:
+      - description: User ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: User update data
+        in: body
+        name: user
+        required: true
+        schema:
+          $ref: '#/definitions/user.UpdateUserDTO'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/user.User'
+      security:
+      - BearerAuth: []
+      summary: Update user
+      tags:
+      - users
+  /api/v1/users/{id}/books:
+    get:
+      description: Get paginated list of user's books
+      parameters:
+      - description: User ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: 'Page number (default: 1)'
+        in: query
+        name: page
+        type: integer
+      - description: 'Items per page (default: 10, max: 100)'
+        in: query
+        name: pageSize
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Returns books and pagination info
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - Bearer: []
+      summary: Get user books
+      tags:
+      - books
+  /api/v1/users/login:
+    post:
+      consumes:
+      - application/json
+      description: Login user and get JWT token
+      parameters:
+      - description: Login credentials
+        in: body
+        name: credentials
+        required: true
+        schema:
+          $ref: '#/definitions/user.LoginDTO'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/user.TokenResponse'
+      summary: Login user
+      tags:
+      - users
+  /api/v1/users/register:
+    post:
+      consumes:
+      - application/json
+      description: Register a new user in the system
+      parameters:
+      - description: User registration data
+        in: body
+        name: user
+        required: true
+        schema:
+          $ref: '#/definitions/user.CreateUserDTO'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/user.User'
+      summary: Register new user
+      tags:
+      - users
+schemes:
+- http
+securityDefinitions:
+  Bearer:
+    description: Type "Bearer" followed by a space and JWT token.
+    in: header
+    name: Authorization
+    type: apiKey
+  RefreshToken:
+    description: Refresh token for getting new access token.
+    in: header
+    name: X-Refresh-Token
+    type: apiKey
+swagger: "2.0"

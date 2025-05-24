@@ -18,6 +18,18 @@ import (
 	httpSwagger "github.com/swaggo/http-swagger"
 )
 
+// @x-codeSamples.languages ["curl", "python", "javascript"]
+
+// @x-codeSamples.curl {"name": "Example with curl", "lang": "bash", "source": "curl -X POST \"http://localhost:8000/api/auth/login\" \\\n  -H \"Content-Type: application/json\" \\\n  -d '{\"login\":\"user\",\"password\":\"pass\"}'"}
+
+// @x-codeSamples.python {"name": "Example with Python", "lang": "python", "source": "import requests\nresponse = requests.post(\"http://localhost:8000/api/auth/login\",\n  json={\"login\":\"user\",\"password\":\"pass\"})\nprint(response.json())"}
+
+// @x-codeSamples.javascript {"name": "Example with JavaScript", "lang": "javascript", "source": "fetch(\"http://localhost:8000/api/auth/login\", {\n  method: \"POST\",\n  headers: {\"Content-Type\": \"application/json\"},\n  body: JSON.stringify({login:\"user\",password:\"pass\"})\n})\n.then(response => response.json())\n.then(data => console.log(data))"}
+
+// @x-tryItOutEnabled true
+// @x-validateRequest true
+// @x-validateResponse true
+
 // @tag.name Auth
 // @tag.description Authentication operations
 
@@ -118,6 +130,9 @@ func (h *Handler) InitRoutes(r chi.Router) {
 // @Failure 400,401,500 {object} ErrorResponse
 // @Security Bearer
 // @Router /api/v1/tags [post]
+// @x-tryItOutEnabled true
+// @x-validateRequest true
+// @x-validateResponse true
 func (h *Handler) createTag(w http.ResponseWriter, r *http.Request) {
 	var dto tag.CreateTagDTO
 	if err := json.NewDecoder(r.Body).Decode(&dto); err != nil {
@@ -211,6 +226,9 @@ func (h *Handler) getPopularTags(w http.ResponseWriter, r *http.Request) {
 // @Failure 400,401,500 {object} ErrorResponse
 // @Security Bearer
 // @Router /api/v1/books [post]
+// @x-tryItOutEnabled true
+// @x-validateRequest true
+// @x-validateResponse true
 func (h *Handler) createBook(w http.ResponseWriter, r *http.Request) {
 	// Получаем ID пользователя из контекста
 	userID, ok := r.Context().Value(UserIDKey).(uint)
@@ -289,6 +307,9 @@ func (h *Handler) createBook(w http.ResponseWriter, r *http.Request) {
 // @Failure 400,401,404,500 {object} ErrorResponse
 // @Security Bearer
 // @Router /api/v1/books/{id} [put]
+// @x-tryItOutEnabled true
+// @x-validateRequest true
+// @x-validateResponse true
 func (h *Handler) updateBook(w http.ResponseWriter, r *http.Request) {
 	id, err := strconv.ParseUint(chi.URLParam(r, "id"), 10, 32)
 	if err != nil {

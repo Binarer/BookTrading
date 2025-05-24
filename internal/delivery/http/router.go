@@ -27,16 +27,23 @@ func NewRouter(h *Handler, jwtAuth *jwtauth.JWTAuth) *chi.Mux {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			// Получаем origin из запроса
 			origin := r.Header.Get("Origin")
+
+			// Если origin есть в запросе, используем его
 			if origin != "" {
 				w.Header().Set("Access-Control-Allow-Origin", origin)
 				w.Header().Set("Vary", "Origin")
+			} else {
+				// Если origin нет, разрешаем все origins
+				w.Header().Set("Access-Control-Allow-Origin", "*")
 			}
+
+			// Устанавливаем остальные CORS заголовки
 			w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
 			w.Header().Set("Access-Control-Allow-Headers", "Accept, Authorization, Content-Type, X-CSRF-Token")
 			w.Header().Set("Access-Control-Allow-Credentials", "true")
 			w.Header().Set("Access-Control-Max-Age", "300")
 
-			// Обработка preflight запросов
+			// Если это preflight запрос, сразу отвечаем OK
 			if r.Method == "OPTIONS" {
 				w.WriteHeader(http.StatusOK)
 				return

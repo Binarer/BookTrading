@@ -113,7 +113,6 @@ func (u *userUsecase) Update(id uint, dto *user.UpdateUserDTO) (*user.User, erro
 		return nil, err
 	}
 
-	// Update fields if provided
 	if dto.Username != "" {
 		existingUser.Username = dto.Username
 	}

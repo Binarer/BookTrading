@@ -16,13 +16,23 @@ type Validate struct {
 // New создает новый экземпляр валидатора
 func New() *Validate {
 	v := validator.New()
-	
+
 	// Регистрация пользовательской валидации для base64
 	_ = v.RegisterValidation("base64", func(fl validator.FieldLevel) bool {
 		value := fl.Field().String()
 		if value == "" {
 			return true // Пустая строка считается валидной
 		}
+
+		// Проверяем, является ли строка data URL
+		if len(value) > 22 && value[:22] == "data:image/jpeg;base64," {
+			// Извлекаем только base64 часть для проверки
+			base64Part := value[22:]
+			_, err := base64.StdEncoding.DecodeString(base64Part)
+			return err == nil
+		}
+
+		// Если это не data URL, проверяем как обычный base64
 		_, err := base64.StdEncoding.DecodeString(value)
 		return err == nil
 	})
@@ -54,10 +64,10 @@ func ValidateTagName(tagRepo interface {
 	if err != nil {
 		return err
 	}
-	
+
 	if existingTag != nil && existingTag.ID != excludeID {
 		return fmt.Errorf("tag name '%s' is not unique", name)
 	}
-	
+
 	return nil
-} 
+}

@@ -12,6 +12,8 @@ import (
 	"net/http"
 	"strconv"
 	"time"
+
+	_ "booktrading/docs" // This is required for Swagger
 )
 
 // @title Book Trading API

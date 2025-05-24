@@ -5,6 +5,7 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/cors"
 	httpSwagger "github.com/swaggo/http-swagger"
+	"net/http"
 )
 
 func (h *Handler) InitRouter() *chi.Mux {
@@ -25,6 +26,12 @@ func (h *Handler) InitRouter() *chi.Mux {
 	r.Use(middleware.Logger)
 	r.Use(middleware.Recoverer)
 	r.Use(middleware.URLFormat)
+
+	// Serve static files
+	fileServer := http.FileServer(http.Dir("web"))
+	r.Handle("/", fileServer)
+	r.Handle("/styles.css", fileServer)
+	r.Handle("/app.js", fileServer)
 
 	// Swagger
 	r.Get("/swagger/*", httpSwagger.Handler(

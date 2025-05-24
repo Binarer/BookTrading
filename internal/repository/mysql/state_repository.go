@@ -2,7 +2,7 @@ package mysql
 
 import (
 	"booktrading/internal/domain/state"
-	"book
+	"booktrading/internal/pkg/logger"
 	"fmt"
 	"gorm.io/gorm"
 )

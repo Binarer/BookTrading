@@ -87,7 +87,7 @@ func (r *BookRepository) AddTags(bookID uint, tagIDs []uint) error {
 
 func (r *BookRepository) GetAll() ([]*book.Book, error) {
 	var books []*book.Book
-	if err := r.db.Find(&books).Error; err != nil {
+	if err := r.db.Preload("Tags").Preload("State").Preload("User").Find(&books).Error; err != nil {
 		return nil, err
 	}
 	return books, nil
@@ -104,7 +104,7 @@ func (r *BookRepository) GetUserBooks(userID uint, page, pageSize int) ([]*book.
 
 	// Получаем книги с пагинацией
 	offset := (page - 1) * pageSize
-	if err := r.db.Preload("Tags").Preload("State").
+	if err := r.db.Preload("Tags").Preload("State").Preload("User").
 		Where("user_id = ?", userID).
 		Offset(offset).
 		Limit(pageSize).

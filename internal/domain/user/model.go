@@ -57,7 +57,7 @@ type CreateUserDTO struct {
 type UpdateUserDTO struct {
 	Username    string  `json:"username" validate:"omitempty,min=3,max=50"`
 	Description *string `json:"description" validate:"omitempty,max=1000"`
-	Avatar      *string `json:"avatar" validate:"omitempty,base64"`
+	Avatar      *string `json:"avatar"`
 }
 
 // LoginDTO представляет данные для входа

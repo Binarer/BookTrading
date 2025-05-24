@@ -20,9 +20,9 @@ const (
 // Book представляет собой книгу в системе
 type Book struct {
 	ID          uint         `json:"id" gorm:"primaryKey"`
-	Title       string       `json:"title" gorm:"not null"`
-	Author      string       `json:"author" gorm:"not null"`
-	Description string       `json:"description"`
+	Title       string       `json:"title" gorm:"type:varchar(255);not null"`
+	Author      string       `json:"author" gorm:"type:varchar(255);not null"`
+	Description string       `json:"description" gorm:"type:text"`
 	Photos      []string     `json:"photos" gorm:"-"`        // Игнорируем в GORM
 	PhotosJSON  string       `json:"-" gorm:"column:photos"` // Храним как JSON
 	UserID      uint         `json:"user_id" gorm:"not null"`

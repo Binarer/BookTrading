@@ -18,21 +18,25 @@ func (s *Service) CreateBook(title, author, description string) *Book {
 		Title:       title,
 		Author:      author,
 		Description: description,
+		StateID:     1, // Состояние "available" по умолчанию
 	}
 }
 
 // AddTags добавляет теги к книге
 func (s *Service) AddTags(book *Book, tags []*tag.Tag) {
-	bookTags := make([]tag.Tag, len(tags))
-	for i, t := range tags {
-		bookTags[i] = *t
-	}
-	book.Tags = bookTags
+	// Используем указатели на теги для сохранения ссылок
+	book.Tags = tags
 }
 
 // UpdateBook обновляет детали книги
 func (s *Service) UpdateBook(book *Book, title, author, description string) {
-	book.Title = title
-	book.Author = author
-	book.Description = description
+	if title != "" {
+		book.Title = title
+	}
+	if author != "" {
+		book.Author = author
+	}
+	if description != "" {
+		book.Description = description
+	}
 }

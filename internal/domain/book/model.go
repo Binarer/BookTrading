@@ -4,7 +4,7 @@ import (
 	"booktrading/internal/domain/state"
 	"booktrading/internal/domain/tag"
 	"booktrading/internal/domain/user"
-	"booktrading/internal/pkg/gorm"
+	"time"
 )
 
 // BookState представляет возможные состояния книги
@@ -17,46 +17,21 @@ const (
 	StateTraded    BookState = "traded"    // Книга обменена
 )
 
-// Book представляет сущность книги
-// @Description Модель книги для системы обмена книгами
+// Book представляет собой книгу в системе
 type Book struct {
-	gorm.Base
-	// @Description Название книги
-	// @example The Great Gatsby
-	Title string `gorm:"size:255;not null" json:"title"`
-
-	// @Description Автор книги
-	// @example F. Scott Fitzgerald
-	Author string `gorm:"size:255;not null" json:"author"`
-
-	// @Description Описание книги
-	// @example A story of the fabulously wealthy Jay Gatsby and his love for the beautiful Daisy Buchanan.
-	Description string `gorm:"type:text" json:"description"`
-
-	// @Description Цена книги
-	// @example 19.99
-	Price float64 `json:"price"`
-
-	// @Description ID состояния книги
-	// @example 1
-	StateID uint `json:"state_id"`
-
-	// @Description Состояние книги
-	State state.State `json:"state"`
-
-	// @Description Теги книги
-	Tags []tag.Tag `gorm:"many2many:book_tags;" json:"tags"`
-
-	// @Description ID пользователя-владельца
-	// @example 1
-	UserID uint `json:"user_id"`
-
-	// @Description Пользователь-владелец
-	User user.User `json:"user"`
-
-	// @Description Фотографии книги в формате base64
-	// @example ["data:image/jpeg;base64,/9j/4AAQSkZJRg..."]
-	Photos string `gorm:"type:json" json:"photos"`
+	ID          uint         `json:"id" gorm:"primaryKey"`
+	Title       string       `json:"title" gorm:"not null"`
+	Author      string       `json:"author" gorm:"not null"`
+	Description string       `json:"description"`
+	Photos      []string     `json:"photos" gorm:"-"`        // Игнорируем в GORM
+	PhotosJSON  string       `json:"-" gorm:"column:photos"` // Храним как JSON
+	UserID      uint         `json:"user_id" gorm:"not null"`
+	User        *user.User   `json:"user" gorm:"foreignKey:UserID"`
+	StateID     uint         `json:"state_id" gorm:"not null"`
+	State       *state.State `json:"state" gorm:"foreignKey:StateID"`
+	Tags        []*tag.Tag   `json:"tags" gorm:"many2many:book_tags"`
+	CreatedAt   time.Time    `json:"created_at"`
+	UpdatedAt   time.Time    `json:"updated_at"`
 }
 
 // TableName указывает имя таблицы для модели Book
@@ -64,56 +39,25 @@ func (Book) TableName() string {
 	return "books"
 }
 
-// CreateBookDTO представляет данные, необходимые для создания новой книги
-// @Description Данные для создания новой книги
+// CreateBookDTO представляет данные для создания книги
 type CreateBookDTO struct {
-	// @Description Название книги
-	// @example The Great Gatsby
-	Title string `json:"title" validate:"required,min=3,max=100"`
-
-	// @Description Автор книги
-	// @example F. Scott Fitzgerald
-	Author string `json:"author" validate:"required,min=3,max=100"`
-
-	// @Description Описание книги
-	// @example A story of the fabulously wealthy Jay Gatsby and his love for the beautiful Daisy Buchanan.
-	Description string `json:"description" validate:"required,min=10,max=1000"`
-
-	// @Description ID состояния книги
-	// @example 1
-	StateID int64 `json:"state_id" validate:"required"`
-
-	// @Description Фотографии книги в формате base64
-	// @example ["data:image/jpeg;base64,/9j/4AAQSkZJRg..."]
-	Photos []string `json:"photos" validate:"required,min=1,max=5,dive,base64"`
-
-	// @Description ID тегов книги
-	// @example [1, 2, 3]
-	TagIDs []int64 `json:"tag_ids" validate:"required,min=1,max=5,dive,min=1"`
+	Title       string   `json:"title" binding:"required"`
+	Author      string   `json:"author" binding:"required"`
+	Description string   `json:"description"`
+	Photos      []string `json:"photos"`
+	UserID      uint     `json:"user_id" binding:"required"`
+	StateID     uint     `json:"state_id" binding:"required"`
+	TagIDs      []uint   `json:"tag_ids"`
 }
 
-// UpdateBookDTO представляет данные, необходимые для обновления книги
-// @Description Данные для обновления существующей книги
+// UpdateBookDTO представляет данные для обновления книги
 type UpdateBookDTO struct {
-	// @Description Название книги
-	// @example The Great Gatsby
-	Title string `json:"title" validate:"omitempty,min=3,max=100"`
-
-	// @Description Автор книги
-	// @example F. Scott Fitzgerald
-	Author string `json:"author" validate:"omitempty,min=3,max=100"`
-
-	// @Description Описание книги
-	// @example A story of the fabulously wealthy Jay Gatsby and his love for the beautiful Daisy Buchanan.
-	Description string `json:"description" validate:"omitempty,min=10,max=1000"`
-
-	// @Description ID состояния книги
-	// @example 1
-	StateID int64 `json:"state_id" validate:"omitempty,min=1"`
-
-	// @Description Фотографии книги в формате base64
-	// @example ["data:image/jpeg;base64,/9j/4AAQSkZJRg..."]
-	Photos []string `json:"photos" validate:"omitempty,min=1,max=5,dive,base64"`
+	Title       string   `json:"title"`
+	Author      string   `json:"author"`
+	Description string   `json:"description"`
+	Photos      []string `json:"photos"`
+	StateID     uint     `json:"state_id"`
+	TagIDs      []uint   `json:"tag_ids"`
 }
 
 // UpdateBookStateDTO представляет данные, необходимые для обновления состояния книги
@@ -122,4 +66,35 @@ type UpdateBookStateDTO struct {
 	// @Description ID нового состояния книги
 	// @example 1
 	StateID int64 `json:"state_id" validate:"required,min=1"`
+}
+
+// ToBook преобразует DTO в модель Book
+func (dto *CreateBookDTO) ToBook() *Book {
+	return &Book{
+		Title:       dto.Title,
+		Author:      dto.Author,
+		Description: dto.Description,
+		Photos:      dto.Photos,
+		UserID:      dto.UserID,
+		StateID:     dto.StateID,
+	}
+}
+
+// UpdateFromDTO обновляет поля книги из DTO
+func (b *Book) UpdateFromDTO(dto *UpdateBookDTO) {
+	if dto.Title != "" {
+		b.Title = dto.Title
+	}
+	if dto.Author != "" {
+		b.Author = dto.Author
+	}
+	if dto.Description != "" {
+		b.Description = dto.Description
+	}
+	if len(dto.Photos) > 0 {
+		b.Photos = dto.Photos
+	}
+	if dto.StateID != 0 {
+		b.StateID = dto.StateID
+	}
 }

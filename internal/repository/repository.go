@@ -3,11 +3,15 @@ package repository
 import (
 	"booktrading/internal/config"
 	"booktrading/internal/domain/book"
+	"booktrading/internal/domain/repository"
 	"booktrading/internal/domain/state"
 	"booktrading/internal/domain/tag"
 	"booktrading/internal/domain/user"
+	"booktrading/internal/repository/mysql"
 	"database/sql"
 	"strconv"
+
+	"gorm.io/gorm"
 )
 
 // BookRepository определяет интерфейс для работы с книгами
@@ -18,6 +22,7 @@ type BookRepository interface {
 	AddTags(bookID uint, tagIDs []uint) error
 	Update(book *book.Book) error
 	Delete(id uint) error
+	GetAll(page, pageSize int) ([]*book.Book, int64, error)
 	GetUserBooks(userID uint, page, pageSize int) ([]*book.Book, int64, error)
 }
 
@@ -27,7 +32,7 @@ type TagRepository interface {
 	GetByID(id uint) (*tag.Tag, error)
 	GetByName(name string) (*tag.Tag, error)
 	GetAll() ([]*tag.Tag, error)
-	GetPopular(limit int) ([]*tag.Tag, error)
+	GetPopular(limit int) ([]*tag.TagWithCount, error)
 	Update(tag *tag.Tag) error
 	Delete(id uint) error
 }
@@ -46,7 +51,7 @@ type UserRepository interface {
 	Create(user *user.User) error
 	GetByID(id uint) (*user.User, error)
 	GetByLogin(login string) (*user.User, error)
-	GetAll() ([]*user.User, error)
+	GetAll(page, pageSize int) ([]*user.User, int64, error)
 	Update(user *user.User) error
 	Delete(id uint) error
 }
@@ -55,4 +60,14 @@ type UserRepository interface {
 func NewMySQLConnection(cfg *config.DatabaseConfig) (*sql.DB, error) {
 	dsn := cfg.User + ":" + cfg.Password + "@tcp(" + cfg.Host + ":" + strconv.Itoa(cfg.Port) + ")/" + cfg.DBName + "?parseTime=true"
 	return sql.Open("mysql", dsn)
+}
+
+func NewRepository(db *gorm.DB) *repository.Repository {
+	return &repository.Repository{
+		User:  mysql.NewUserRepository(db),
+		Book:  mysql.NewBookRepository(db),
+		Tag:   mysql.NewTagRepository(db),
+		State: mysql.NewStateRepository(db),
+		Token: mysql.NewRefreshTokenRepository(db),
+	}
 }

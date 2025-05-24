@@ -4,6 +4,7 @@ import (
 	"booktrading/internal/domain/book"
 	"booktrading/internal/domain/state"
 	"booktrading/internal/domain/tag"
+	"booktrading/internal/pkg/jwt"
 	"booktrading/internal/pkg/logger"
 	"booktrading/internal/pkg/validator"
 	"booktrading/internal/usecase"
@@ -13,10 +14,30 @@ import (
 	"net/http"
 	"strconv"
 
-	"booktrading/internal/pkg/jwt"
 	"github.com/go-chi/chi/v5"
 	httpSwagger "github.com/swaggo/http-swagger"
 )
+
+// @tag.name Auth
+// @tag.description Authentication operations
+
+// @tag.name Users
+// @tag.description User management operations
+
+// @tag.name Books
+// @tag.description Book management operations
+
+// @tag.name Tags
+// @tag.description Tag management operations
+
+// @tag.name States
+// @tag.description Book state management operations
+
+// ErrorResponse представляет собой структуру для ответов с ошибками
+// @Description Структура для возврата ошибок API
+type ErrorResponse struct {
+	Error string `json:"error" example:"Error message"`
+}
 
 // Handler представляет HTTP обработчик
 type Handler struct {
@@ -62,6 +83,7 @@ func (h *Handler) InitRoutes(r chi.Router) {
 			r.Get("/{id}", h.getTagByID)
 			r.Get("/popular", h.getPopularTags)
 			r.Delete("/{id}", h.deleteTag)
+			r.Put("/{id}", h.updateTag)
 		})
 
 		// Группа маршрутов для книг
@@ -87,15 +109,14 @@ func (h *Handler) InitRoutes(r chi.Router) {
 	})
 }
 
-// @Summary Create a new tag
-// @Description Create a new tag with the given name
-// @Tags tags
+// @Summary Create tag
+// @Tags Tags
 // @Accept json
 // @Produce json
 // @Param tag body tag.CreateTagDTO true "Tag details"
-// @Param Authorization header string true "Bearer {token}"
-// @Success 200 {object} tag.Tag
-// @Security BearerAuth
+// @Success 201 {object} tag.Tag
+// @Failure 400,401,500 {object} ErrorResponse
+// @Security Bearer
 // @Router /api/v1/tags [post]
 func (h *Handler) createTag(w http.ResponseWriter, r *http.Request) {
 	var dto tag.CreateTagDTO
@@ -120,20 +141,21 @@ func (h *Handler) createTag(w http.ResponseWriter, r *http.Request) {
 	// Save tag
 	if err := h.tagUsecase.CreateTag(newTag); err != nil {
 		logger.Error("Failed to create tag", err)
-		http.Error(w, "Failed to create tag", http.StatusInternalServerError)
+		http.Error(w, "Failed to create tag: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
 
 	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusCreated)
 	json.NewEncoder(w).Encode(newTag)
 }
 
-// @Summary Get tag by ID
-// @Description Get tag information by ID
-// @Tags tags
+// @Summary Get tag
+// @Tags Tags
 // @Produce json
 // @Param id path int true "Tag ID"
 // @Success 200 {object} tag.Tag
+// @Failure 400,404 {object} ErrorResponse
 // @Router /api/v1/tags/{id} [get]
 func (h *Handler) getTagByID(w http.ResponseWriter, r *http.Request) {
 	id, err := strconv.ParseUint(chi.URLParam(r, "id"), 10, 32)
@@ -155,10 +177,9 @@ func (h *Handler) getTagByID(w http.ResponseWriter, r *http.Request) {
 }
 
 // @Summary Get popular tags
-// @Description Get list of popular tags
-// @Tags tags
+// @Tags Tags
 // @Produce json
-// @Param limit query int false "Number of tags to return"
+// @Param limit query int false "Number of tags"
 // @Success 200 {array} tag.Tag
 // @Router /api/v1/tags/popular [get]
 func (h *Handler) getPopularTags(w http.ResponseWriter, r *http.Request) {
@@ -186,9 +207,9 @@ func (h *Handler) getPopularTags(w http.ResponseWriter, r *http.Request) {
 // @Accept json
 // @Produce json
 // @Param book body book.CreateBookDTO true "Book details"
-// @Param Authorization header string true "Bearer {token}"
-// @Success 200 {object} book.Book
-// @Security BearerAuth
+// @Success 201 {object} book.Book
+// @Failure 400,401,500 {object} ErrorResponse
+// @Security Bearer
 // @Router /api/v1/books [post]
 func (h *Handler) createBook(w http.ResponseWriter, r *http.Request) {
 	// Получаем ID пользователя из контекста
@@ -212,19 +233,22 @@ func (h *Handler) createBook(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Convert photos array to JSON string
-	var photosJSON string
-	if len(dto.Photos) > 0 {
-		jsonBytes, err := json.Marshal(dto.Photos)
+	// Проверяем существование состояния
+	state, err := h.stateUsecase.GetByID(uint(dto.StateID))
+	if err != nil {
+		logger.Error("Invalid state ID", err)
+		http.Error(w, "Invalid state ID", http.StatusBadRequest)
+		return
+	}
+
+	// Проверяем существование всех тегов
+	for _, tagID := range dto.TagIDs {
+		_, err := h.tagUsecase.GetTagByID(uint(tagID))
 		if err != nil {
-			logger.Error("Failed to marshal photos", err)
-			http.Error(w, "Failed to process photos", http.StatusInternalServerError)
+			logger.Error("Invalid tag ID", err)
+			http.Error(w, fmt.Sprintf("Invalid tag ID: %d", tagID), http.StatusBadRequest)
 			return
 		}
-		photosJSON = string(jsonBytes)
-	} else {
-		// If no photos, use empty array JSON
-		photosJSON = "[]"
 	}
 
 	// Create new book
@@ -232,9 +256,9 @@ func (h *Handler) createBook(w http.ResponseWriter, r *http.Request) {
 		Title:       dto.Title,
 		Author:      dto.Author,
 		Description: dto.Description,
-		StateID:     uint(dto.StateID),
+		Photos:      dto.Photos,
 		UserID:      userID,
-		Photos:      photosJSON,
+		StateID:     state.ID,
 	}
 
 	// Convert tag IDs to uint
@@ -261,9 +285,9 @@ func (h *Handler) createBook(w http.ResponseWriter, r *http.Request) {
 // @Produce json
 // @Param id path int true "Book ID"
 // @Param book body book.UpdateBookDTO true "Book details"
-// @Param Authorization header string true "Bearer {token}"
 // @Success 200 {object} book.Book
-// @Security BearerAuth
+// @Failure 400,401,404,500 {object} ErrorResponse
+// @Security Bearer
 // @Router /api/v1/books/{id} [put]
 func (h *Handler) updateBook(w http.ResponseWriter, r *http.Request) {
 	id, err := strconv.ParseUint(chi.URLParam(r, "id"), 10, 32)
@@ -368,9 +392,9 @@ func (h *Handler) searchBooksByTags(w http.ResponseWriter, r *http.Request) {
 // @Produce json
 // @Param id path int true "Book ID"
 // @Param tagIds body []int true "Tag IDs"
-// @Param Authorization header string true "Bearer {token}"
 // @Success 200 {object} book.Book
-// @Security BearerAuth
+// @Failure 400,401,404,500 {object} ErrorResponse
+// @Security Bearer
 // @Router /api/v1/books/{id}/tags [post]
 func (h *Handler) addTagsToBook(w http.ResponseWriter, r *http.Request) {
 	bookID, err := strconv.ParseUint(chi.URLParam(r, "id"), 10, 32)
@@ -415,35 +439,25 @@ func (h *Handler) addTagsToBook(w http.ResponseWriter, r *http.Request) {
 // @Accept json
 // @Produce json
 // @Param state body state.CreateStateDTO true "State object"
-// @Param Authorization header string true "Bearer {token}"
 // @Success 201 {object} state.State
-// @Security BearerAuth
+// @Failure 400,401,500 {object} ErrorResponse
+// @Security Bearer
 // @Router /api/v1/states [post]
 func (h *Handler) createState(w http.ResponseWriter, r *http.Request) {
-	var dto state.CreateStateDTO
-	if err := json.NewDecoder(r.Body).Decode(&dto); err != nil {
+	var s state.State
+	if err := json.NewDecoder(r.Body).Decode(&s); err != nil {
 		logger.Error("Failed to decode request body", err)
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
 		return
 	}
 
-	logger.Info("Creating state with name: " + dto.Name)
-
-	if err := h.validate.Struct(dto); err != nil {
-		logger.Error("Validation failed", err)
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
-
-	s, err := h.stateUsecase.CreateState(&dto)
-	if err != nil {
+	if err := h.stateUsecase.Create(&s); err != nil {
 		logger.Error("Failed to create state", err)
 		http.Error(w, "Failed to create state", http.StatusInternalServerError)
 		return
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusCreated)
 	json.NewEncoder(w).Encode(s)
 }
 
@@ -454,8 +468,9 @@ func (h *Handler) createState(w http.ResponseWriter, r *http.Request) {
 // @Success 200 {array} state.State
 // @Router /api/v1/states [get]
 func (h *Handler) getAllStates(w http.ResponseWriter, r *http.Request) {
-	states, err := h.stateUsecase.GetAllStates()
+	states, err := h.stateUsecase.GetAll()
 	if err != nil {
+		logger.Error("Failed to get states", err)
 		http.Error(w, "Failed to get states", http.StatusInternalServerError)
 		return
 	}
@@ -474,18 +489,20 @@ func (h *Handler) getAllStates(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) getStateByID(w http.ResponseWriter, r *http.Request) {
 	id, err := strconv.ParseUint(chi.URLParam(r, "id"), 10, 32)
 	if err != nil {
+		logger.Error("Invalid state ID", err)
 		http.Error(w, "Invalid state ID", http.StatusBadRequest)
 		return
 	}
 
-	s, err := h.stateUsecase.GetStateByID(uint(id))
+	state, err := h.stateUsecase.GetByID(uint(id))
 	if err != nil {
+		logger.Error("Failed to get state", err)
 		http.Error(w, "State not found", http.StatusNotFound)
 		return
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(s)
+	json.NewEncoder(w).Encode(state)
 }
 
 // @Summary Update state
@@ -495,30 +512,28 @@ func (h *Handler) getStateByID(w http.ResponseWriter, r *http.Request) {
 // @Produce json
 // @Param id path int true "State ID"
 // @Param state body state.UpdateStateDTO true "State object"
-// @Param Authorization header string true "Bearer {token}"
 // @Success 200 {object} state.State
-// @Security BearerAuth
+// @Failure 400,401,404,500 {object} ErrorResponse
+// @Security Bearer
 // @Router /api/v1/states/{id} [put]
 func (h *Handler) updateState(w http.ResponseWriter, r *http.Request) {
 	id, err := strconv.ParseUint(chi.URLParam(r, "id"), 10, 32)
 	if err != nil {
+		logger.Error("Invalid state ID", err)
 		http.Error(w, "Invalid state ID", http.StatusBadRequest)
 		return
 	}
 
-	var dto state.UpdateStateDTO
-	if err := json.NewDecoder(r.Body).Decode(&dto); err != nil {
+	var s state.State
+	if err := json.NewDecoder(r.Body).Decode(&s); err != nil {
+		logger.Error("Failed to decode request body", err)
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
 		return
 	}
 
-	if err := h.validate.Struct(dto); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
-
-	s, err := h.stateUsecase.UpdateState(uint(id), &dto)
-	if err != nil {
+	s.ID = uint(id)
+	if err := h.stateUsecase.Update(&s); err != nil {
+		logger.Error("Failed to update state", err)
 		http.Error(w, "Failed to update state", http.StatusInternalServerError)
 		return
 	}
@@ -531,18 +546,20 @@ func (h *Handler) updateState(w http.ResponseWriter, r *http.Request) {
 // @Description Delete a book state
 // @Tags states
 // @Param id path int true "State ID"
-// @Param Authorization header string true "Bearer {token}"
 // @Success 204 "No Content"
-// @Security BearerAuth
+// @Failure 400,401,404,500 {object} ErrorResponse
+// @Security Bearer
 // @Router /api/v1/states/{id} [delete]
 func (h *Handler) deleteState(w http.ResponseWriter, r *http.Request) {
 	id, err := strconv.ParseUint(chi.URLParam(r, "id"), 10, 32)
 	if err != nil {
+		logger.Error("Invalid state ID", err)
 		http.Error(w, "Invalid state ID", http.StatusBadRequest)
 		return
 	}
 
-	if err := h.stateUsecase.DeleteState(uint(id)); err != nil {
+	if err := h.stateUsecase.Delete(uint(id)); err != nil {
+		logger.Error("Failed to delete state", err)
 		http.Error(w, "Failed to delete state", http.StatusInternalServerError)
 		return
 	}
@@ -554,9 +571,9 @@ func (h *Handler) deleteState(w http.ResponseWriter, r *http.Request) {
 // @Description Delete a book by ID
 // @Tags books
 // @Param id path int true "Book ID"
-// @Param Authorization header string true "Bearer {token}"
 // @Success 204 "No Content"
-// @Security BearerAuth
+// @Failure 400,401,404,500 {object} ErrorResponse
+// @Security Bearer
 // @Router /api/v1/books/{id} [delete]
 func (h *Handler) deleteBook(w http.ResponseWriter, r *http.Request) {
 	id, err := strconv.ParseUint(chi.URLParam(r, "id"), 10, 32)
@@ -574,12 +591,11 @@ func (h *Handler) deleteBook(w http.ResponseWriter, r *http.Request) {
 }
 
 // @Summary Delete tag
-// @Description Delete a tag
-// @Tags tags
+// @Tags Tags
 // @Param id path int true "Tag ID"
-// @Param Authorization header string true "Bearer {token}"
 // @Success 204 "No Content"
-// @Security BearerAuth
+// @Failure 400,401,404,500 {object} ErrorResponse
+// @Security Bearer
 // @Router /api/v1/tags/{id} [delete]
 func (h *Handler) deleteTag(w http.ResponseWriter, r *http.Request) {
 	id, err := strconv.ParseUint(chi.URLParam(r, "id"), 10, 32)
@@ -597,8 +613,7 @@ func (h *Handler) deleteTag(w http.ResponseWriter, r *http.Request) {
 }
 
 // @Summary Get all tags
-// @Description Get list of all tags
-// @Tags tags
+// @Tags Tags
 // @Produce json
 // @Success 200 {array} tag.Tag
 // @Router /api/v1/tags [get]
@@ -621,9 +636,9 @@ func (h *Handler) getAllTags(w http.ResponseWriter, r *http.Request) {
 // @Produce json
 // @Param id path int true "Book ID"
 // @Param state body book.UpdateBookStateDTO true "New state"
-// @Param Authorization header string true "Bearer {token}"
 // @Success 200 {object} book.Book
-// @Security BearerAuth
+// @Failure 400,401,404,500 {object} ErrorResponse
+// @Security Bearer
 // @Router /api/v1/books/{id}/state [patch]
 func (h *Handler) updateBookState(w http.ResponseWriter, r *http.Request) {
 	id, err := strconv.ParseUint(chi.URLParam(r, "id"), 10, 32)
@@ -658,70 +673,14 @@ func (h *Handler) updateBookState(w http.ResponseWriter, r *http.Request) {
 }
 
 // @Summary Get all books
-// @Description Get a list of all books
+// @Description Get a list of all books with pagination
 // @Tags books
 // @Produce json
-// @Success 200 {array} book.Book
-// @Router /api/v1/books [get]
-func (h *Handler) getAllBooks(w http.ResponseWriter, r *http.Request) {
-	books, err := h.bookUsecase.GetAllBooks()
-	if err != nil {
-		logger.Error("Failed to get books", err)
-		http.Error(w, "Failed to get books", http.StatusInternalServerError)
-		return
-	}
-
-	// Log the books for debugging
-	logger.Info(fmt.Sprintf("Retrieved %d books", len(books)))
-	for _, book := range books {
-		logger.Info(fmt.Sprintf("Book ID: %d, Title: %s, State: %v, Tags: %v",
-			book.ID, book.Title, book.State, book.Tags))
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(books)
-}
-
-// @Summary Get all users
-// @Description Get a list of all users
-// @Tags users
-// @Produce json
-// @Param Authorization header string true "Bearer {token}"
-// @Success 200 {array} user.User
-// @Security BearerAuth
-// @Router /api/v1/users [get]
-func (h *Handler) getAllUsers(w http.ResponseWriter, r *http.Request) {
-	users, err := h.userUsecase.GetAll()
-	if err != nil {
-		logger.Error("Failed to get users", err)
-		http.Error(w, "Failed to get users", http.StatusInternalServerError)
-		return
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(users)
-}
-
-// @Summary Get user books
-// @Description Get paginated list of user's books
-// @Tags books
-// @Produce json
-// @Param id path int true "User ID"
 // @Param page query int false "Page number (default: 1)"
 // @Param pageSize query int false "Items per page (default: 10, max: 100)"
-// @Param Authorization header string true "Bearer {token}"
 // @Success 200 {object} map[string]interface{} "Returns books and pagination info"
-// @Security BearerAuth
-// @Router /api/v1/users/{id}/books [get]
-func (h *Handler) getUserBooks(w http.ResponseWriter, r *http.Request) {
-	// Получаем ID пользователя из URL
-	userID, err := strconv.ParseUint(chi.URLParam(r, "id"), 10, 32)
-	if err != nil {
-		logger.Error("Invalid user ID", err)
-		http.Error(w, "Invalid user ID", http.StatusBadRequest)
-		return
-	}
-
+// @Router /api/v1/books [get]
+func (h *Handler) getAllBooks(w http.ResponseWriter, r *http.Request) {
 	// Получаем параметры пагинации
 	page := 1
 	if pageStr := r.URL.Query().Get("page"); pageStr != "" {
@@ -737,11 +696,11 @@ func (h *Handler) getUserBooks(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// Получаем книги пользователя
-	books, total, err := h.bookUsecase.GetUserBooks(uint(userID), page, pageSize)
+	// Получаем книги с пагинацией
+	books, total, err := h.bookUsecase.GetAllBooks(page, pageSize)
 	if err != nil {
-		logger.Error("Failed to get user books", err)
-		http.Error(w, "Failed to get user books", http.StatusInternalServerError)
+		logger.Error("Failed to get books", err)
+		http.Error(w, "Failed to get books", http.StatusInternalServerError)
 		return
 	}
 
@@ -758,4 +717,128 @@ func (h *Handler) getUserBooks(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(response)
+}
+
+// @Summary Get user books
+// @Description Get paginated list of user's books
+// @Tags books
+// @Produce json
+// @Param id path int true "User ID"
+// @Param page query int false "Page number (default: 1)"
+// @Param pageSize query int false "Items per page (default: 10, max: 100)"
+// @Success 200 {object} map[string]interface{} "Returns books and pagination info"
+// @Security Bearer
+// @Router /api/v1/users/{id}/books [get]
+func (h *Handler) getUserBooks(w http.ResponseWriter, r *http.Request) {
+	userID, err := strconv.ParseUint(chi.URLParam(r, "id"), 10, 32)
+	if err != nil {
+		logger.Error("Invalid user ID", err)
+		http.Error(w, "Invalid user ID", http.StatusBadRequest)
+		return
+	}
+
+	page := 1
+	pageSize := 10
+
+	if pageStr := r.URL.Query().Get("page"); pageStr != "" {
+		if p, err := strconv.Atoi(pageStr); err == nil && p > 0 {
+			page = p
+		}
+	}
+
+	if sizeStr := r.URL.Query().Get("size"); sizeStr != "" {
+		if s, err := strconv.Atoi(sizeStr); err == nil && s > 0 && s <= 100 {
+			pageSize = s
+		}
+	}
+
+	books, total, err := h.bookUsecase.GetUserBooks(uint(userID), page, pageSize)
+	if err != nil {
+		logger.Error("Failed to get user books", err)
+		http.Error(w, "Failed to get user books", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"books": books,
+		"total": total,
+	})
+}
+
+// @Summary Update tag
+// @Tags Tags
+// @Accept json
+// @Produce json
+// @Param id path int true "Tag ID"
+// @Param tag body tag.UpdateTagDTO true "Tag details"
+// @Success 200 {object} tag.Tag
+// @Failure 400,401,404,500 {object} ErrorResponse
+// @Security Bearer
+// @Router /api/v1/tags/{id} [put]
+func (h *Handler) updateTag(w http.ResponseWriter, r *http.Request) {
+	id, err := strconv.ParseUint(chi.URLParam(r, "id"), 10, 32)
+	if err != nil {
+		logger.Error("Invalid tag ID", err)
+		http.Error(w, "Invalid tag ID", http.StatusBadRequest)
+		return
+	}
+
+	var dto tag.UpdateTagDTO
+	if err := json.NewDecoder(r.Body).Decode(&dto); err != nil {
+		logger.Error("Failed to decode request body", err)
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	if err := h.validate.Struct(dto); err != nil {
+		logger.Error("Validation failed", err)
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	updatedTag, err := h.tagUsecase.UpdateTag(uint(id), &dto)
+	if err != nil {
+		logger.Error("Failed to update tag", err)
+		http.Error(w, "Failed to update tag", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(updatedTag)
+}
+
+// @Summary Refresh access token
+// @Tags Auth
+// @Accept json
+// @Produce json
+// @Success 200 {object} jwt.TokenPair
+// @Failure 401,500 {object} ErrorResponse
+// @Security RefreshToken
+// @Router /api/v1/auth/refresh [post]
+func (h *Handler) RefreshToken(w http.ResponseWriter, r *http.Request) {
+	refreshToken := r.Header.Get("X-Refresh-Token")
+	if refreshToken == "" {
+		http.Error(w, "Refresh token is required", http.StatusUnauthorized)
+		return
+	}
+
+	// Получаем пользователя по refresh token
+	user, err := h.jwtSvc.ValidateRefreshToken(refreshToken)
+	if err != nil {
+		logger.Error("Failed to validate refresh token", err)
+		http.Error(w, "Invalid refresh token", http.StatusUnauthorized)
+		return
+	}
+
+	// Генерируем новую пару токенов
+	tokenPair, err := h.jwtSvc.GenerateTokenPair(user)
+	if err != nil {
+		logger.Error("Failed to generate token pair", err)
+		http.Error(w, "Failed to generate tokens", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(tokenPair)
 }

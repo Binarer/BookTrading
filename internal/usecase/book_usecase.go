@@ -13,7 +13,7 @@ import (
 type BookUsecase interface {
 	CreateBook(book *book.Book, tagIDs []uint) error
 	GetBookByID(id uint) (*book.Book, error)
-	GetAllBooks() ([]*book.Book, error)
+	GetAllBooks(page, pageSize int) ([]*book.Book, int64, error)
 	GetBooksByTags(tagIDs []uint) ([]*book.Book, error)
 	AddTagsToBook(bookID uint, tagIDs []uint) error
 	UpdateBook(id uint, dto *book.UpdateBookDTO) (*book.Book, error)
@@ -24,27 +24,30 @@ type BookUsecase interface {
 
 // bookUsecase реализует интерфейс BookUsecase
 type bookUsecase struct {
-	bookRepo *mysql.BookRepository
-	tagRepo  *mysql.TagRepository
-	cache    *cache.Cache
-	bookSvc  *book.Service
+	bookRepo  *mysql.BookRepository
+	tagRepo   *mysql.TagRepository
+	stateRepo *mysql.StateRepository
+	cache     *cache.Cache
+	bookSvc   *book.Service
 }
 
 // NewBookUsecase создает новый экземпляр bookUsecase
-func NewBookUsecase(bookRepo *mysql.BookRepository, tagRepo *mysql.TagRepository, cache *cache.Cache) BookUsecase {
+func NewBookUsecase(bookRepo *mysql.BookRepository, tagRepo *mysql.TagRepository, stateRepo *mysql.StateRepository, cache *cache.Cache) BookUsecase {
 	return &bookUsecase{
-		bookRepo: bookRepo,
-		tagRepo:  tagRepo,
-		cache:    cache,
-		bookSvc:  book.NewService(),
+		bookRepo:  bookRepo,
+		tagRepo:   tagRepo,
+		stateRepo: stateRepo,
+		cache:     cache,
+		bookSvc:   book.NewService(),
 	}
 }
 
 // CreateBook создает новую книгу
 func (u *bookUsecase) CreateBook(book *book.Book, tagIDs []uint) error {
-	// Устанавливаем состояние по умолчанию
+	// Если состояние не указано, устанавливаем состояние "available"
 	if book.StateID == 0 {
-		book.StateID = 1 // Предполагаем, что 1 - это ID состояния по умолчанию
+		// Используем ID 1 для состояния "available"
+		book.StateID = 1
 	}
 
 	// Получаем теги
@@ -104,13 +107,9 @@ func (u *bookUsecase) GetBooksByTags(tagIDs []uint) ([]*book.Book, error) {
 	}
 
 	// Получение книг из репозитория
-	var books []*book.Book
-	for _, tagID := range tagIDs {
-		tagBooks, err := u.bookRepo.GetByTag(tagID)
-		if err != nil {
-			return nil, err
-		}
-		books = append(books, tagBooks...)
+	books, err := u.bookRepo.GetByTags(tagIDs)
+	if err != nil {
+		return nil, err
 	}
 
 	// Сохранение в кеш
@@ -171,6 +170,10 @@ func (u *bookUsecase) UpdateBook(id uint, dto *book.UpdateBookDTO) (*book.Book, 
 		existingBook.Description = dto.Description
 	}
 	if dto.StateID != 0 {
+		// Проверяем существование нового состояния
+		if _, err := u.stateRepo.GetByID(uint(dto.StateID)); err != nil {
+			return nil, fmt.Errorf("invalid state ID: %w", err)
+		}
 		existingBook.StateID = uint(dto.StateID)
 	}
 
@@ -192,6 +195,11 @@ func (u *bookUsecase) UpdateBookState(id uint, stateID uint) (*book.Book, error)
 	existingBook, err := u.GetBookByID(id)
 	if err != nil {
 		return nil, err
+	}
+
+	// Проверяем существование нового состояния
+	if _, err := u.stateRepo.GetByID(stateID); err != nil {
+		return nil, fmt.Errorf("invalid state ID: %w", err)
 	}
 
 	// Обновляем состояние
@@ -223,8 +231,41 @@ func (u *bookUsecase) DeleteBook(id uint) error {
 	return nil
 }
 
-func (u *bookUsecase) GetAllBooks() ([]*book.Book, error) {
-	return u.bookRepo.GetAll()
+// GetAllBooks получает все книги с пагинацией
+func (u *bookUsecase) GetAllBooks(page, pageSize int) ([]*book.Book, int64, error) {
+	if page < 1 {
+		page = 1
+	}
+	if pageSize < 1 {
+		pageSize = 10
+	}
+
+	// Попытка получить книги из кеша
+	cacheKey := fmt.Sprintf("books:page:%d:size:%d", page, pageSize)
+	if cached, found := u.cache.Get(cacheKey); found {
+		if result, ok := cached.(map[string]interface{}); ok {
+			if books, ok := result["books"].([]*book.Book); ok {
+				if total, ok := result["total"].(int64); ok {
+					return books, total, nil
+				}
+			}
+		}
+	}
+
+	// Получение книг из репозитория
+	books, total, err := u.bookRepo.GetAll(page, pageSize)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	// Сохранение в кеш
+	result := map[string]interface{}{
+		"books": books,
+		"total": total,
+	}
+	u.cache.Set(cacheKey, result, 5*time.Minute)
+
+	return books, total, nil
 }
 
 // GetUserBooks получает книги пользователя с пагинацией

@@ -35,7 +35,9 @@ type DatabaseConfig struct {
 
 // JWTConfig represents the JWT configuration
 type JWTConfig struct {
-	SecretKey string
+	SecretKey     string
+	RefreshSecret string
+	Issuer        string
 }
 
 // Load загружает конфигурацию из переменных окружения
@@ -80,7 +82,11 @@ func Load() (*Config, error) {
 		Cache:   cacheConfig,
 		Logging: NewLoggingConfig(),
 		CORS:    NewCORSConfig(),
-		JWT:     JWTConfig{SecretKey: getEnv("JWT_SECRET_KEY", "your-secret-key-here")},
+		JWT: JWTConfig{
+			SecretKey:     getEnv("JWT_SECRET_KEY", "your-secret-key-here-book-trading"),
+			RefreshSecret: getEnv("JWT_REFRESH_SECRET", "your-refresh-secret-here-book-trading"),
+			Issuer:        getEnv("JWT_ISSUER", "booktrading"),
+		},
 	}, nil
 }
 

@@ -5,39 +5,17 @@ import (
 	"time"
 )
 
-// User представляет пользователя системы
+// User представляет собой пользователя системы
 // @Description Модель пользователя системы обмена книгами
 type User struct {
 	gorm.Base
-	// @Description Имя пользователя
-	// @example john_doe
-	Username string `gorm:"size:255;not null;unique" json:"username"`
-
-	// @Description Логин пользователя
-	// @example john_doe
-	Login string `gorm:"size:255;not null;unique" json:"login"`
-
-	// @Description Хеш пароля (не отображается в JSON)
-	PasswordHash string `gorm:"size:255;not null" json:"-"`
-
-	// @Description Описание пользователя
-	// @example Book lover and collector
-	Description *string `gorm:"type:text" json:"description"`
-
-	// @Description Аватар пользователя в формате base64
-	// @example data:image/jpeg;base64,/9j/4AAQSkZJRg...
-	Avatar *string `gorm:"type:text" json:"avatar"`
-
-	// @Description Книги пользователя
-	// @example [{"id": 1, "title": "The Great Gatsby"}]
-	Books interface{} `gorm:"-" json:"books"`
-
-	// @Description Время создания аккаунта
-	// @example 2025-04-28T12:00:00Z
+	ID        uint      `json:"id" gorm:"primaryKey"`
+	Login     string    `json:"login" gorm:"uniqueIndex;not null"`
+	Username  string    `json:"username" gorm:"not null"`          // Отображаемое имя пользователя
+	Password  string    `json:"-" gorm:"not null"`                 // Не отображаем в JSON
+	Avatar    string    `json:"avatar,omitempty" gorm:"type:text"` // Base64 строка для аватарки
+	BookIDs   []uint    `json:"book_ids" gorm:"-"`                 // Игнорируем в GORM
 	CreatedAt time.Time `json:"created_at"`
-
-	// @Description Время последнего обновления аккаунта
-	// @example 2025-04-28T12:00:00Z
 	UpdatedAt time.Time `json:"updated_at"`
 }
 
@@ -46,27 +24,50 @@ func (User) TableName() string {
 	return "users"
 }
 
-// CreateUserDTO представляет данные для создания нового пользователя
+// CreateUserDTO представляет данные для создания пользователя
 type CreateUserDTO struct {
-	Username string `json:"username" validate:"required,min=3,max=50"`
-	Login    string `json:"login" validate:"required,min=3,max=50"`
-	Password string `json:"password" validate:"required,min=6"`
+	Login    string `json:"login" binding:"required,min=3,max=50"`
+	Username string `json:"username" binding:"required,min=2,max=50"` // Отображаемое имя пользователя
+	Password string `json:"password" binding:"required,min=6,max=50"`
 }
 
 // UpdateUserDTO представляет данные для обновления пользователя
 type UpdateUserDTO struct {
-	Username    string  `json:"username" validate:"omitempty,min=3,max=50"`
-	Description *string `json:"description" validate:"omitempty,max=1000"`
-	Avatar      *string `json:"avatar"`
+	Login    string `json:"login" binding:"omitempty,min=3,max=50"`
+	Username string `json:"username" binding:"omitempty,min=2,max=50"` // Отображаемое имя пользователя
+	Avatar   string `json:"avatar,omitempty" binding:"omitempty"`      // Base64 строка для аватарки
 }
 
-// LoginDTO представляет данные для входа
+// LoginDTO представляет данные для входа пользователя
 type LoginDTO struct {
-	Login    string `json:"login" validate:"required"`
-	Password string `json:"password" validate:"required"`
+	Login    string `json:"login" binding:"required"`
+	Password string `json:"password" binding:"required"`
 }
 
 // TokenResponse представляет ответ с JWT токеном
 type TokenResponse struct {
-	Token string `json:"token"`
+	Token        string `json:"token"`
+	RefreshToken string `json:"refresh_token"`
+}
+
+// ToUser преобразует DTO в модель User
+func (dto *CreateUserDTO) ToUser() *User {
+	return &User{
+		Login:    dto.Login,
+		Username: dto.Username,
+		Password: dto.Password,
+	}
+}
+
+// UpdateFromDTO обновляет поля пользователя из DTO
+func (u *User) UpdateFromDTO(dto *UpdateUserDTO) {
+	if dto.Login != "" {
+		u.Login = dto.Login
+	}
+	if dto.Username != "" {
+		u.Username = dto.Username
+	}
+	if dto.Avatar != "" {
+		u.Avatar = dto.Avatar
+	}
 }

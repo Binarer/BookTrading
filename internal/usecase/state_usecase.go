@@ -1,19 +1,19 @@
 package usecase
 
 import (
+	"booktrading/internal/domain/repository"
 	"booktrading/internal/domain/state"
 	"booktrading/internal/pkg/logger"
-	"booktrading/internal/repository"
 	"fmt"
 )
 
 // StateUsecase определяет интерфейс для работы с состояниями книг
 type StateUsecase interface {
-	CreateState(dto *state.CreateStateDTO) (*state.State, error)
-	GetStateByID(id uint) (*state.State, error)
-	GetAllStates() ([]*state.State, error)
-	UpdateState(id uint, dto *state.UpdateStateDTO) (*state.State, error)
-	DeleteState(id uint) error
+	Create(s *state.State) error
+	GetByID(id uint) (*state.State, error)
+	GetAll() ([]*state.State, error)
+	Update(s *state.State) error
+	Delete(id uint) error
 }
 
 // stateUsecase реализует интерфейс StateUsecase
@@ -28,50 +28,35 @@ func NewStateUsecase(stateRepo repository.StateRepository) StateUsecase {
 	}
 }
 
-// CreateState создает новое состояние
-func (u *stateUsecase) CreateState(dto *state.CreateStateDTO) (*state.State, error) {
-	logger.Info("Creating state in usecase with name: " + dto.Name)
-
-	s := &state.State{
-		Name: dto.Name,
-	}
+// Create создает новое состояние
+func (u *stateUsecase) Create(s *state.State) error {
+	logger.Info("Creating state in usecase with name: " + s.Name)
 
 	if err := u.stateRepo.Create(s); err != nil {
 		logger.Error("Failed to create state in repository", err)
-		return nil, err
+		return err
 	}
 
 	logger.Info("State created successfully with ID: " + fmt.Sprintf("%d", s.ID))
-	return s, nil
+	return nil
 }
 
-// GetStateByID получает состояние по ID
-func (u *stateUsecase) GetStateByID(id uint) (*state.State, error) {
+// GetByID получает состояние по ID
+func (u *stateUsecase) GetByID(id uint) (*state.State, error) {
 	return u.stateRepo.GetByID(id)
 }
 
-// GetAllStates получает список всех состояний
-func (u *stateUsecase) GetAllStates() ([]*state.State, error) {
+// GetAll получает список всех состояний
+func (u *stateUsecase) GetAll() ([]*state.State, error) {
 	return u.stateRepo.GetAll()
 }
 
-// UpdateState обновляет существующее состояние
-func (u *stateUsecase) UpdateState(id uint, dto *state.UpdateStateDTO) (*state.State, error) {
-	s, err := u.stateRepo.GetByID(id)
-	if err != nil {
-		return nil, err
-	}
-
-	s.Name = dto.Name
-
-	if err := u.stateRepo.Update(s); err != nil {
-		return nil, err
-	}
-
-	return s, nil
+// Update обновляет существующее состояние
+func (u *stateUsecase) Update(s *state.State) error {
+	return u.stateRepo.Update(s)
 }
 
-// DeleteState удаляет состояние по ID
-func (u *stateUsecase) DeleteState(id uint) error {
+// Delete удаляет состояние по ID
+func (u *stateUsecase) Delete(id uint) error {
 	return u.stateRepo.Delete(id)
 }

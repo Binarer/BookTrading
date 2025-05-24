@@ -5,6 +5,8 @@ import (
 	"booktrading/internal/pkg/jwt"
 	"booktrading/internal/repository"
 	"errors"
+	"fmt"
+
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -18,7 +20,7 @@ type UserUsecase interface {
 	Register(dto *user.CreateUserDTO) (*user.User, error)
 	Login(dto *user.LoginDTO) (*user.TokenResponse, error)
 	GetByID(id uint) (*user.User, error)
-	GetAll() ([]*user.User, error)
+	GetAll(page, pageSize int) ([]*user.User, int64, error)
 	Update(id uint, dto *user.UpdateUserDTO) (*user.User, error)
 	Delete(id uint) error
 }
@@ -36,30 +38,32 @@ func NewUserUsecase(userRepo repository.UserRepository, jwtSvc *jwt.Service) Use
 }
 
 func (u *userUsecase) Register(dto *user.CreateUserDTO) (*user.User, error) {
-	// Check if user already exists
+	// Проверяем, существует ли пользователь
 	existingUser, err := u.userRepo.GetByLogin(dto.Login)
-	if err != nil && !errors.Is(err, repository.ErrNotFound) {
-		return nil, err
+	if err != nil {
+		return nil, fmt.Errorf("failed to check user existence: %w", err)
 	}
 	if existingUser != nil {
 		return nil, ErrUserAlreadyExists
 	}
 
-	// Hash password
+	// Хешируем пароль
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(dto.Password), bcrypt.DefaultCost)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to hash password: %w", err)
 	}
 
-	// Create user
-	newUser := &user.User{
-		Username:     dto.Username,
-		Login:        dto.Login,
-		PasswordHash: string(hashedPassword),
+	// Создаем нового пользователя
+	newUser := dto.ToUser()
+	newUser.Password = string(hashedPassword)
+
+	// Если username не указан, используем login как username
+	if newUser.Username == "" {
+		newUser.Username = newUser.Login
 	}
 
 	if err := u.userRepo.Create(newUser); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to create user: %w", err)
 	}
 
 	return newUser, nil
@@ -69,24 +73,27 @@ func (u *userUsecase) Login(dto *user.LoginDTO) (*user.TokenResponse, error) {
 	// Get user by login
 	existingUser, err := u.userRepo.GetByLogin(dto.Login)
 	if err != nil {
-		if errors.Is(err, repository.ErrNotFound) {
-			return nil, ErrInvalidCredentials
-		}
-		return nil, err
+		return nil, fmt.Errorf("failed to get user: %w", err)
 	}
-
-	// Check password
-	if err := bcrypt.CompareHashAndPassword([]byte(existingUser.PasswordHash), []byte(dto.Password)); err != nil {
+	if existingUser == nil {
 		return nil, ErrInvalidCredentials
 	}
 
-	// Generate JWT token
-	token, err := u.jwtSvc.GenerateToken(existingUser)
-	if err != nil {
-		return nil, err
+	// Check password
+	if err := bcrypt.CompareHashAndPassword([]byte(existingUser.Password), []byte(dto.Password)); err != nil {
+		return nil, ErrInvalidCredentials
 	}
 
-	return &user.TokenResponse{Token: token}, nil
+	// Generate JWT token pair
+	tokenPair, err := u.jwtSvc.GenerateTokenPair(existingUser)
+	if err != nil {
+		return nil, fmt.Errorf("failed to generate token pair: %w", err)
+	}
+
+	return &user.TokenResponse{
+		Token:        tokenPair.AccessToken,
+		RefreshToken: tokenPair.RefreshToken,
+	}, nil
 }
 
 func (u *userUsecase) GetByID(id uint) (*user.User, error) {
@@ -100,8 +107,14 @@ func (u *userUsecase) GetByID(id uint) (*user.User, error) {
 	return user, nil
 }
 
-func (u *userUsecase) GetAll() ([]*user.User, error) {
-	return u.userRepo.GetAll()
+func (u *userUsecase) GetAll(page, pageSize int) ([]*user.User, int64, error) {
+	if page < 1 {
+		page = 1
+	}
+	if pageSize < 1 {
+		pageSize = 10
+	}
+	return u.userRepo.GetAll(page, pageSize)
 }
 
 func (u *userUsecase) Update(id uint, dto *user.UpdateUserDTO) (*user.User, error) {
@@ -113,15 +126,8 @@ func (u *userUsecase) Update(id uint, dto *user.UpdateUserDTO) (*user.User, erro
 		return nil, err
 	}
 
-	if dto.Username != "" {
-		existingUser.Username = dto.Username
-	}
-	if dto.Description != nil {
-		existingUser.Description = dto.Description
-	}
-	if dto.Avatar != nil {
-		existingUser.Avatar = dto.Avatar
-	}
+	// Обновляем поля из DTO
+	existingUser.UpdateFromDTO(dto)
 
 	if err := u.userRepo.Update(existingUser); err != nil {
 		return nil, err

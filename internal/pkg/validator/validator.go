@@ -4,6 +4,7 @@ import (
 	"booktrading/internal/domain/tag"
 	"encoding/base64"
 	"fmt"
+	"strings"
 
 	"github.com/go-playground/validator/v10"
 )
@@ -25,16 +26,33 @@ func New() *Validate {
 		}
 
 		// Проверяем, является ли строка data URL
-		if len(value) > 22 && value[:22] == "data:image/jpeg;base64," {
-			// Извлекаем только base64 часть для проверки
-			base64Part := value[22:]
-			_, err := base64.StdEncoding.DecodeString(base64Part)
-			return err == nil
+		if !strings.HasPrefix(value, "data:image/") {
+			return false
 		}
 
-		// Если это не data URL, проверяем как обычный base64
-		_, err := base64.StdEncoding.DecodeString(value)
-		return err == nil
+		// Проверяем формат изображения
+		contentType := strings.TrimPrefix(value, "data:")
+		if !strings.HasPrefix(contentType, "image/jpeg;base64,") && !strings.HasPrefix(contentType, "image/png;base64,") {
+			return false
+		}
+
+		// Извлекаем base64 часть
+		parts := strings.Split(value, ",")
+		if len(parts) != 2 {
+			return false
+		}
+
+		// Проверяем размер (5MB = 5 * 1024 * 1024 байт)
+		decoded, err := base64.StdEncoding.DecodeString(parts[1])
+		if err != nil {
+			return false
+		}
+
+		if len(decoded) > 5*1024*1024 {
+			return false
+		}
+
+		return true
 	})
 
 	// Регистрация пользовательской валидации для состояния

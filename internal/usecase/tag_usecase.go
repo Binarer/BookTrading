@@ -5,8 +5,8 @@ import (
 	"booktrading/internal/pkg/cache"
 	"booktrading/internal/pkg/logger"
 	"booktrading/internal/repository"
-	_ "encoding/json"
 	"database/sql"
+	_ "encoding/json"
 	"fmt"
 	"time"
 )
@@ -17,7 +17,7 @@ type TagUsecase interface {
 	GetTagByID(id uint) (*tag.Tag, error)
 	GetTagByName(name string) (*tag.Tag, error)
 	GetAllTags() ([]*tag.Tag, error)
-	GetPopularTags(limit int) ([]*tag.Tag, error)
+	GetPopularTags(limit int) ([]*tag.TagWithCount, error)
 	UpdateTag(id uint, dto *tag.UpdateTagDTO) (*tag.Tag, error)
 	DeleteTag(id uint) error
 }
@@ -39,23 +39,15 @@ func NewTagUsecase(tagRepo repository.TagRepository, bookRepo repository.BookRep
 }
 
 // CreateTag создает новый тег
-func (u *tagUsecase) CreateTag(tag *tag.Tag) error {
-	// Проверяем уникальность имени
-	existingTag, err := u.tagRepo.GetByName(tag.Name)
-	if err != nil && err != sql.ErrNoRows {
-		return err
-	}
-	if existingTag != nil {
-		return fmt.Errorf("tag name '%s' is not unique", tag.Name)
+func (u *tagUsecase) CreateTag(t *tag.Tag) error {
+	// Создаем тег
+	if err := u.tagRepo.Create(t); err != nil {
+		return fmt.Errorf("failed to create tag: %w", err)
 	}
 
-	// Сохраняем в репозиторий
-	if err := u.tagRepo.Create(tag); err != nil {
-		return err
-	}
-
-	// Инвалидация кеша популярных тегов
-	u.cache.Delete("popular_tags")
+	// Инвалидируем кеш
+	u.cache.Delete("tags:all")
+	u.cache.Delete("tags:popular")
 
 	return nil
 }
@@ -130,11 +122,11 @@ func (u *tagUsecase) GetAllTags() ([]*tag.Tag, error) {
 }
 
 // GetPopularTags получает список популярных тегов
-func (u *tagUsecase) GetPopularTags(limit int) ([]*tag.Tag, error) {
+func (u *tagUsecase) GetPopularTags(limit int) ([]*tag.TagWithCount, error) {
 	// Попытка получить теги из кеша
 	cacheKey := fmt.Sprintf("popular_tags:%d", limit)
 	if cached, found := u.cache.Get(cacheKey); found {
-		if tags, ok := cached.([]*tag.Tag); ok {
+		if tags, ok := cached.([]*tag.TagWithCount); ok {
 			return tags, nil
 		}
 	}

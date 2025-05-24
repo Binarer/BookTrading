@@ -6,6 +6,7 @@ import (
 	"booktrading/internal/pkg/cache"
 	"booktrading/internal/pkg/jwt"
 	"booktrading/internal/pkg/logger"
+	"booktrading/internal/repository"
 	"booktrading/internal/repository/mysql"
 	"booktrading/internal/usecase"
 	"fmt"
@@ -18,51 +19,69 @@ import (
 
 // @title Book Trading API
 // @version 1.0
-// @description API for book trading system with tag support
+// @description API для обмена книгами
 // @host localhost:8000
 // @BasePath /
-func main() {
-	// Инициализация логгера
-	logger.Init()
+// @schemes http
 
-	// Загрузка конфигурации
+// @securityDefinitions.apikey Bearer
+// @in header
+// @name Authorization
+// @description Type "Bearer" followed by a space and JWT token.
+
+// @securityDefinitions.apikey RefreshToken
+// @in header
+// @name X-Refresh-Token
+// @description Refresh token for getting new access token.
+
+func main() {
 	cfg, err := config.Load()
 	if err != nil {
 		logger.Fatal("Failed to load config", err)
 	}
 
-	// Формирование DSN для подключения к MySQL
-	dsn := fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?parseTime=true",
+	// Получаем *gorm.DB напрямую
+	db, err := mysql.InitDB(fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?charset=utf8mb4&parseTime=True&loc=Local",
 		cfg.Database.User,
 		cfg.Database.Password,
 		cfg.Database.Host,
 		cfg.Database.Port,
 		cfg.Database.DBName,
-	)
-
-	// Инициализация базы данных с автоматической миграцией
-	db, err := mysql.InitDB(dsn)
+	))
 	if err != nil {
-		logger.Fatal("Failed to initialize database", err)
+		logger.Fatal("Failed to connect to database", err)
 	}
 
-	// Инициализация кэша
-	cacheInstance := cache.NewCache(cfg.Cache.TTL, cfg.Cache.CleanupInterval)
+	repo := repository.NewRepository(db)
 
-	// Инициализация JWT сервиса
-	jwtSvc := jwt.NewService(cfg.JWT.SecretKey)
+	jwtSvc := jwt.NewService(
+		cfg.JWT.SecretKey,
+		cfg.JWT.RefreshSecret,
+		cfg.JWT.Issuer,
+		repo.Token,
+		repo.User,
+	)
 
-	// Инициализация репозиториев
-	userRepo := mysql.NewUserRepository(db)
-	bookRepo := mysql.NewBookRepository(db)
-	tagRepo := mysql.NewTagRepository(db)
-	stateRepo := mysql.NewStateRepository(db)
+	// Инициализация кеша
+	cache := cache.NewCache()
 
-	// Инициализация use cases
-	userUsecase := usecase.NewUserUsecase(userRepo, jwtSvc)
-	bookUsecase := usecase.NewBookUsecase(bookRepo, tagRepo, cacheInstance)
-	tagUsecase := usecase.NewTagUsecase(tagRepo, bookRepo, cacheInstance)
-	stateUsecase := usecase.NewStateUsecase(stateRepo)
+	// Инициализация usecase'ов
+	bookUsecase := usecase.NewBookUsecase(
+		repo.Book.(*mysql.BookRepository),
+		repo.Tag.(*mysql.TagRepository),
+		repo.State.(*mysql.StateRepository),
+		cache,
+	)
+
+	tagUsecase := usecase.NewTagUsecase(
+		repo.Tag.(*mysql.TagRepository),
+		repo.Book.(*mysql.BookRepository),
+		cache,
+	)
+
+	stateUsecase := usecase.NewStateUsecase(repo.State.(*mysql.StateRepository))
+
+	userUsecase := usecase.NewUserUsecase(repo.User, jwtSvc)
 
 	// Инициализация HTTP обработчика
 	handler := httpHandler.NewHandler(
@@ -74,7 +93,7 @@ func main() {
 	)
 
 	// Инициализация роутера
-	router := handler.InitRouter()
+	router := httpHandler.NewRouter(handler, jwtSvc.GetJWTAuth())
 
 	// Запуск сервера
 	addr := cfg.Server.Host + ":" + strconv.Itoa(cfg.Server.Port)

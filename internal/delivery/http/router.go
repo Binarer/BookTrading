@@ -2,7 +2,6 @@ package http
 
 import (
 	"net/http"
-	"strings"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
@@ -64,34 +63,11 @@ func NewRouter(h *Handler, jwtAuth *jwtauth.JWTAuth) *chi.Mux {
 		r.Get("/api/v1/states/{id}", h.getStateByID)
 		r.Post("/api/v1/users/register", h.Register)
 		r.Post("/api/v1/users/login", h.Login)
+		r.Post("/api/v1/auth/refresh", h.RefreshToken)
 	})
 
 	// Protected routes
 	r.Group(func(r chi.Router) {
-		r.Use(func(next http.Handler) http.Handler {
-			return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				// Получаем токен из заголовка
-				authHeader := r.Header.Get("Authorization")
-				if authHeader == "" {
-					http.Error(w, "Authorization header is required", http.StatusUnauthorized)
-					return
-				}
-
-				// Проверяем формат Bearer
-				parts := strings.Split(authHeader, " ")
-				var token string
-				if len(parts) == 2 && parts[0] == "Bearer" {
-					token = parts[1]
-				} else {
-					// Если токен без префикса Bearer, используем его как есть
-					token = authHeader
-				}
-
-				// Устанавливаем токен в заголовок, который ожидает jwtauth
-				r.Header.Set("Authorization", "Bearer "+token)
-				next.ServeHTTP(w, r)
-			})
-		})
 		r.Use(jwtauth.Verifier(jwtAuth))
 		r.Use(jwtauth.Authenticator(jwtAuth))
 

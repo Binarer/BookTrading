@@ -56,18 +56,20 @@ func NewRouter(h *Handler, jwtAuth *jwtauth.JWTAuth) *chi.Mux {
 	r.Group(func(r chi.Router) {
 		r.Get("/api/v1/books", h.getAllBooks)
 		r.Get("/api/v1/books/{id}", h.getBookByID)
-		r.Get("/api/v1/books/tags", h.searchBooksByTags)
+		r.Get("/api/v1/books/search", h.searchBooksByTags)
 		r.Get("/api/v1/tags", h.getAllTags)
 		r.Get("/api/v1/tags/{id}", h.getTagByID)
+		r.Get("/api/v1/tags/popular", h.getPopularTags)
 		r.Get("/api/v1/states", h.getAllStates)
 		r.Get("/api/v1/states/{id}", h.getStateByID)
-		r.Post("/api/v1/users/register", h.Register)
-		r.Post("/api/v1/users/login", h.Login)
-		r.Post("/api/v1/auth/refresh", h.RefreshToken)
+		r.Post("/api/v1/auth/register", h.register)
+		r.Post("/api/v1/auth/login", h.login)
+		r.Post("/api/v1/auth/refresh", h.refreshToken)
 	})
 
 	// Protected routes
 	r.Group(func(r chi.Router) {
+		// JWT middleware
 		r.Use(jwtauth.Verifier(jwtAuth))
 		r.Use(jwtauth.Authenticator(jwtAuth))
 
@@ -75,7 +77,8 @@ func NewRouter(h *Handler, jwtAuth *jwtauth.JWTAuth) *chi.Mux {
 		r.Post("/api/v1/books", h.createBook)
 		r.Put("/api/v1/books/{id}", h.updateBook)
 		r.Delete("/api/v1/books/{id}", h.deleteBook)
-		r.Put("/api/v1/books/{id}/state", h.updateBookState)
+		r.Patch("/api/v1/books/{id}/state", h.updateBookState)
+		r.Post("/api/v1/books/{id}/tags", h.addTagsToBook)
 
 		// Tag routes
 		r.Post("/api/v1/tags", h.createTag)
@@ -89,9 +92,9 @@ func NewRouter(h *Handler, jwtAuth *jwtauth.JWTAuth) *chi.Mux {
 
 		// User routes
 		r.Get("/api/v1/users", h.getAllUsers)
-		r.Get("/api/v1/users/{id}", h.GetUserByID)
-		r.Put("/api/v1/users/{id}", h.UpdateUser)
-		r.Delete("/api/v1/users/{id}", h.DeleteUser)
+		r.Get("/api/v1/users/{id}", h.getUserByID)
+		r.Put("/api/v1/users/{id}", h.updateUser)
+		r.Delete("/api/v1/users/{id}", h.deleteUser)
 		r.Get("/api/v1/users/{id}/books", h.getUserBooks)
 	})
 

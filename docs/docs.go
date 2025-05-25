@@ -15,6 +15,58 @@ const docTemplate = `{
     "host": "{{.Host}}",
     "basePath": "{{.BasePath}}",
     "paths": {
+        "/api/v1/auth/login": {
+            "post": {
+                "description": "Authenticate user and return JWT tokens",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Auth"
+                ],
+                "summary": "Login user",
+                "parameters": [
+                    {
+                        "description": "User login credentials",
+                        "name": "credentials",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/user.LoginDTO"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/jwt.TokenPair"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/http.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/http.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/http.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/auth/refresh": {
             "post": {
                 "security": [
@@ -54,14 +106,66 @@ const docTemplate = `{
                 }
             }
         },
-        "/api/v1/books": {
-            "get": {
-                "description": "Get a list of all books with pagination",
+        "/api/v1/auth/register": {
+            "post": {
+                "description": "Register a new user with the provided credentials",
+                "consumes": [
+                    "application/json"
+                ],
                 "produces": [
                     "application/json"
                 ],
                 "tags": [
-                    "books"
+                    "Auth"
+                ],
+                "summary": "Register new user",
+                "parameters": [
+                    {
+                        "description": "User registration data",
+                        "name": "user",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/user.CreateUserDTO"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/user.User"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/http.ErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/http.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/http.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/books": {
+            "get": {
+                "description": "Get paginated list of all books",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Books"
                 ],
                 "summary": "Get all books",
                 "parameters": [
@@ -85,6 +189,12 @@ const docTemplate = `{
                             "type": "object",
                             "additionalProperties": true
                         }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/http.ErrorResponse"
+                        }
                     }
                 }
             },
@@ -94,7 +204,7 @@ const docTemplate = `{
                         "Bearer": []
                     }
                 ],
-                "description": "Create a new book with the given details",
+                "description": "Create a new book with the provided details",
                 "consumes": [
                     "application/json"
                 ],
@@ -102,12 +212,12 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "books"
+                    "Books"
                 ],
-                "summary": "Create a new book",
+                "summary": "Create new book",
                 "parameters": [
                     {
-                        "description": "Book details",
+                        "description": "Book data",
                         "name": "book",
                         "in": "body",
                         "required": true,
@@ -141,20 +251,17 @@ const docTemplate = `{
                             "$ref": "#/definitions/http.ErrorResponse"
                         }
                     }
-                },
-                "x-tryItOutEnabled": true,
-                "x-validateRequest": true,
-                "x-validateResponse": true
+                }
             }
         },
         "/api/v1/books/search": {
             "get": {
-                "description": "Search books by tag IDs",
+                "description": "Search books by provided tag IDs",
                 "produces": [
                     "application/json"
                 ],
                 "tags": [
-                    "books"
+                    "Books"
                 ],
                 "summary": "Search books by tags",
                 "parameters": [
@@ -179,18 +286,30 @@ const docTemplate = `{
                                 "$ref": "#/definitions/book.Book"
                             }
                         }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/http.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/http.ErrorResponse"
+                        }
                     }
                 }
             }
         },
         "/api/v1/books/{id}": {
             "get": {
-                "description": "Get book information by ID",
+                "description": "Get book information by its ID",
                 "produces": [
                     "application/json"
                 ],
                 "tags": [
-                    "books"
+                    "Books"
                 ],
                 "summary": "Get book by ID",
                 "parameters": [
@@ -208,6 +327,18 @@ const docTemplate = `{
                         "schema": {
                             "$ref": "#/definitions/book.Book"
                         }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/http.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/http.ErrorResponse"
+                        }
                     }
                 }
             },
@@ -217,7 +348,7 @@ const docTemplate = `{
                         "Bearer": []
                     }
                 ],
-                "description": "Update book details",
+                "description": "Update existing book information",
                 "consumes": [
                     "application/json"
                 ],
@@ -225,9 +356,9 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "books"
+                    "Books"
                 ],
-                "summary": "Update a book",
+                "summary": "Update book",
                 "parameters": [
                     {
                         "type": "integer",
@@ -237,7 +368,7 @@ const docTemplate = `{
                         "required": true
                     },
                     {
-                        "description": "Book details",
+                        "description": "Updated book data",
                         "name": "book",
                         "in": "body",
                         "required": true,
@@ -277,10 +408,7 @@ const docTemplate = `{
                             "$ref": "#/definitions/http.ErrorResponse"
                         }
                     }
-                },
-                "x-tryItOutEnabled": true,
-                "x-validateRequest": true,
-                "x-validateResponse": true
+                }
             },
             "delete": {
                 "security": [
@@ -288,9 +416,9 @@ const docTemplate = `{
                         "Bearer": []
                     }
                 ],
-                "description": "Delete a book by ID",
+                "description": "Delete book by ID",
                 "tags": [
-                    "books"
+                    "Books"
                 ],
                 "summary": "Delete book",
                 "parameters": [
@@ -340,7 +468,7 @@ const docTemplate = `{
                         "Bearer": []
                     }
                 ],
-                "description": "Update the state of a book",
+                "description": "Update the state of an existing book",
                 "consumes": [
                     "application/json"
                 ],
@@ -348,7 +476,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "books"
+                    "Books"
                 ],
                 "summary": "Update book state",
                 "parameters": [
@@ -360,7 +488,7 @@ const docTemplate = `{
                         "required": true
                     },
                     {
-                        "description": "New state",
+                        "description": "New state data",
                         "name": "state",
                         "in": "body",
                         "required": true,
@@ -410,7 +538,7 @@ const docTemplate = `{
                         "Bearer": []
                     }
                 ],
-                "description": "Add tags to an existing book",
+                "description": "Add new tags to an existing book",
                 "consumes": [
                     "application/json"
                 ],
@@ -418,7 +546,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "books"
+                    "Books"
                 ],
                 "summary": "Add tags to book",
                 "parameters": [
@@ -430,7 +558,7 @@ const docTemplate = `{
                         "required": true
                     },
                     {
-                        "description": "Tag IDs",
+                        "description": "Tag IDs to add",
                         "name": "tagIds",
                         "in": "body",
                         "required": true,
@@ -483,7 +611,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "states"
+                    "States"
                 ],
                 "summary": "Get all states",
                 "responses": {
@@ -494,6 +622,12 @@ const docTemplate = `{
                             "items": {
                                 "$ref": "#/definitions/state.State"
                             }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/http.ErrorResponse"
                         }
                     }
                 }
@@ -512,12 +646,12 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "states"
+                    "States"
                 ],
-                "summary": "Create a new state",
+                "summary": "Create new state",
                 "parameters": [
                     {
-                        "description": "State object",
+                        "description": "State data",
                         "name": "state",
                         "in": "body",
                         "required": true,
@@ -556,12 +690,12 @@ const docTemplate = `{
         },
         "/api/v1/states/{id}": {
             "get": {
-                "description": "Get a book state by ID",
+                "description": "Get book state information by its ID",
                 "produces": [
                     "application/json"
                 ],
                 "tags": [
-                    "states"
+                    "States"
                 ],
                 "summary": "Get state by ID",
                 "parameters": [
@@ -579,6 +713,18 @@ const docTemplate = `{
                         "schema": {
                             "$ref": "#/definitions/state.State"
                         }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/http.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/http.ErrorResponse"
+                        }
                     }
                 }
             },
@@ -588,7 +734,7 @@ const docTemplate = `{
                         "Bearer": []
                     }
                 ],
-                "description": "Update a book state",
+                "description": "Update existing book state information",
                 "consumes": [
                     "application/json"
                 ],
@@ -596,7 +742,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "states"
+                    "States"
                 ],
                 "summary": "Update state",
                 "parameters": [
@@ -608,7 +754,7 @@ const docTemplate = `{
                         "required": true
                     },
                     {
-                        "description": "State object",
+                        "description": "Updated state data",
                         "name": "state",
                         "in": "body",
                         "required": true,
@@ -656,9 +802,9 @@ const docTemplate = `{
                         "Bearer": []
                     }
                 ],
-                "description": "Delete a book state",
+                "description": "Delete book state by ID",
                 "tags": [
-                    "states"
+                    "States"
                 ],
                 "summary": "Delete state",
                 "parameters": [
@@ -703,6 +849,7 @@ const docTemplate = `{
         },
         "/api/v1/tags": {
             "get": {
+                "description": "Get list of all tags",
                 "produces": [
                     "application/json"
                 ],
@@ -719,6 +866,12 @@ const docTemplate = `{
                                 "$ref": "#/definitions/tag.Tag"
                             }
                         }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/http.ErrorResponse"
+                        }
                     }
                 }
             },
@@ -728,6 +881,7 @@ const docTemplate = `{
                         "Bearer": []
                     }
                 ],
+                "description": "Create a new tag with the provided name",
                 "consumes": [
                     "application/json"
                 ],
@@ -737,10 +891,10 @@ const docTemplate = `{
                 "tags": [
                     "Tags"
                 ],
-                "summary": "Create tag",
+                "summary": "Create new tag",
                 "parameters": [
                     {
-                        "description": "Tag details",
+                        "description": "Tag data",
                         "name": "tag",
                         "in": "body",
                         "required": true,
@@ -774,14 +928,12 @@ const docTemplate = `{
                             "$ref": "#/definitions/http.ErrorResponse"
                         }
                     }
-                },
-                "x-tryItOutEnabled": true,
-                "x-validateRequest": true,
-                "x-validateResponse": true
+                }
             }
         },
         "/api/v1/tags/popular": {
             "get": {
+                "description": "Get list of popular tags with optional limit",
                 "produces": [
                     "application/json"
                 ],
@@ -792,7 +944,7 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "integer",
-                        "description": "Number of tags",
+                        "description": "Number of tags to return (default: 10)",
                         "name": "limit",
                         "in": "query"
                     }
@@ -806,19 +958,26 @@ const docTemplate = `{
                                 "$ref": "#/definitions/tag.Tag"
                             }
                         }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/http.ErrorResponse"
+                        }
                     }
                 }
             }
         },
         "/api/v1/tags/{id}": {
             "get": {
+                "description": "Get tag information by its ID",
                 "produces": [
                     "application/json"
                 ],
                 "tags": [
                     "Tags"
                 ],
-                "summary": "Get tag",
+                "summary": "Get tag by ID",
                 "parameters": [
                     {
                         "type": "integer",
@@ -855,6 +1014,7 @@ const docTemplate = `{
                         "Bearer": []
                     }
                 ],
+                "description": "Update existing tag information",
                 "consumes": [
                     "application/json"
                 ],
@@ -874,7 +1034,7 @@ const docTemplate = `{
                         "required": true
                     },
                     {
-                        "description": "Tag details",
+                        "description": "Updated tag data",
                         "name": "tag",
                         "in": "body",
                         "required": true,
@@ -922,6 +1082,7 @@ const docTemplate = `{
                         "Bearer": []
                     }
                 ],
+                "description": "Delete tag by ID",
                 "tags": [
                     "Tags"
                 ],
@@ -968,12 +1129,17 @@ const docTemplate = `{
         },
         "/api/v1/users": {
             "get": {
-                "description": "Get a paginated list of users",
+                "security": [
+                    {
+                        "Bearer": []
+                    }
+                ],
+                "description": "Get paginated list of all users",
                 "produces": [
                     "application/json"
                 ],
                 "tags": [
-                    "users"
+                    "Users"
                 ],
                 "summary": "Get all users",
                 "parameters": [
@@ -985,85 +1151,29 @@ const docTemplate = `{
                     },
                     {
                         "type": "integer",
-                        "description": "Page size (default: 10)",
-                        "name": "page_size",
+                        "description": "Items per page (default: 10, max: 100)",
+                        "name": "pageSize",
                         "in": "query"
                     }
                 ],
                 "responses": {
                     "200": {
-                        "description": "Users and total count",
+                        "description": "Returns users and pagination info",
                         "schema": {
                             "type": "object",
                             "additionalProperties": true
                         }
-                    }
-                }
-            }
-        },
-        "/api/v1/users/login": {
-            "post": {
-                "description": "Login user and get JWT token",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "users"
-                ],
-                "summary": "Login user",
-                "parameters": [
-                    {
-                        "description": "Login credentials",
-                        "name": "credentials",
-                        "in": "body",
-                        "required": true,
+                    },
+                    "401": {
+                        "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/user.LoginDTO"
+                            "$ref": "#/definitions/http.ErrorResponse"
                         }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/user.TokenResponse"
-                        }
-                    }
-                }
-            }
-        },
-        "/api/v1/users/register": {
-            "post": {
-                "description": "Register a new user in the system",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "users"
-                ],
-                "summary": "Register new user",
-                "parameters": [
-                    {
-                        "description": "User registration data",
-                        "name": "user",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/user.CreateUserDTO"
-                        }
-                    }
-                ],
-                "responses": {
-                    "201": {
-                        "description": "Created",
-                        "schema": {
-                            "$ref": "#/definitions/user.User"
+                            "$ref": "#/definitions/http.ErrorResponse"
                         }
                     }
                 }
@@ -1071,12 +1181,17 @@ const docTemplate = `{
         },
         "/api/v1/users/{id}": {
             "get": {
+                "security": [
+                    {
+                        "Bearer": []
+                    }
+                ],
                 "description": "Get user information by ID",
                 "produces": [
                     "application/json"
                 ],
                 "tags": [
-                    "users"
+                    "Users"
                 ],
                 "summary": "Get user by ID",
                 "parameters": [
@@ -1094,16 +1209,34 @@ const docTemplate = `{
                         "schema": {
                             "$ref": "#/definitions/user.User"
                         }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/http.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/http.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/http.ErrorResponse"
+                        }
                     }
                 }
             },
             "put": {
                 "security": [
                     {
-                        "BearerAuth": []
+                        "Bearer": []
                     }
                 ],
-                "description": "Update user information",
+                "description": "Update existing user information",
                 "consumes": [
                     "application/json"
                 ],
@@ -1111,7 +1244,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "users"
+                    "Users"
                 ],
                 "summary": "Update user",
                 "parameters": [
@@ -1123,7 +1256,7 @@ const docTemplate = `{
                         "required": true
                     },
                     {
-                        "description": "User update data",
+                        "description": "Updated user data",
                         "name": "user",
                         "in": "body",
                         "required": true,
@@ -1138,18 +1271,42 @@ const docTemplate = `{
                         "schema": {
                             "$ref": "#/definitions/user.User"
                         }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/http.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/http.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/http.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/http.ErrorResponse"
+                        }
                     }
                 }
             },
             "delete": {
                 "security": [
                     {
-                        "BearerAuth": []
+                        "Bearer": []
                     }
                 ],
                 "description": "Delete user by ID",
                 "tags": [
-                    "users"
+                    "Users"
                 ],
                 "summary": "Delete user",
                 "parameters": [
@@ -1164,6 +1321,30 @@ const docTemplate = `{
                 "responses": {
                     "204": {
                         "description": "No Content"
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/http.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/http.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/http.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/http.ErrorResponse"
+                        }
                     }
                 }
             }
@@ -1180,7 +1361,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "books"
+                    "Users"
                 ],
                 "summary": "Get user books",
                 "parameters": [
@@ -1211,6 +1392,30 @@ const docTemplate = `{
                             "type": "object",
                             "additionalProperties": true
                         }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/http.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/http.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/http.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/http.ErrorResponse"
+                        }
                     }
                 }
             }
@@ -1233,10 +1438,9 @@ const docTemplate = `{
                     "type": "integer"
                 },
                 "photos": {
-                    "description": "Игнорируем в GORM",
                     "type": "array",
                     "items": {
-                        "type": "string"
+                        "$ref": "#/definitions/book.BookPhoto"
                     }
                 },
                 "state": {
@@ -1262,6 +1466,29 @@ const docTemplate = `{
                 },
                 "user_id": {
                     "type": "integer"
+                }
+            }
+        },
+        "book.BookPhoto": {
+            "type": "object",
+            "properties": {
+                "book_id": {
+                    "type": "integer"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "is_main": {
+                    "type": "boolean"
+                },
+                "photo_url": {
+                    "type": "string"
+                },
+                "updated_at": {
+                    "type": "string"
                 }
             }
         },
@@ -1508,17 +1735,6 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "password": {
-                    "type": "string"
-                }
-            }
-        },
-        "user.TokenResponse": {
-            "type": "object",
-            "properties": {
-                "refresh_token": {
-                    "type": "string"
-                },
-                "token": {
                     "type": "string"
                 }
             }

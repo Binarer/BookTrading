@@ -8,7 +8,6 @@ import (
 	"booktrading/internal/domain/user"
 	"booktrading/internal/pkg/logger"
 	"encoding/base64"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
@@ -62,99 +61,108 @@ func validatePhotos(photos []string) error {
 	return nil
 }
 
-func (r *BookRepository) Create(b *book.Book) error {
+func (r *BookRepository) Create(bookData *book.Book) error {
+	tx := r.db.Begin()
+	if tx.Error != nil {
+		return fmt.Errorf("failed to start transaction: %w", tx.Error)
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			tx.Rollback()
+		}
+	}()
+
 	// Проверяем существование пользователя
-	var userExists bool
-	if err := r.db.Model(&user.User{}).Select("1").Where("id = ?", b.UserID).Take(&userExists).Error; err != nil {
-		logger.Error("Failed to check user existence", err)
-		return err
-	}
-	if !userExists {
-		logger.Error("User not found", fmt.Errorf("user with ID %d not found", b.UserID))
-		return errors.New("user not found")
+	var userData user.User
+	if err := tx.First(&userData, bookData.UserID).Error; err != nil {
+		tx.Rollback()
+		return fmt.Errorf("user not found: %w", err)
 	}
 
-	// Проверяем уникальность названия книги для пользователя
-	var count int64
-	if err := r.db.Model(&book.Book{}).Where("user_id = ? AND title = ?", b.UserID, b.Title).Count(&count).Error; err != nil {
-		logger.Error("Failed to check book title uniqueness", err)
-		return err
-	}
-	if count > 0 {
-		logger.Error("Book title already exists", fmt.Errorf("book with title '%s' already exists for user %d", b.Title, b.UserID))
-		return errors.New("book title already exists")
+	// Проверяем уникальность названия книги
+	var existingBookData book.Book
+	if err := tx.Where("title = ?", bookData.Title).First(&existingBookData).Error; err == nil {
+		tx.Rollback()
+		return fmt.Errorf("book with title '%s' already exists", bookData.Title)
 	}
 
-	// Проверяем существование тегов
-	if len(b.Tags) > 0 {
-		var tagIDs []uint
-		for _, t := range b.Tags {
-			tagIDs = append(tagIDs, t.ID)
-		}
-		var count int64
-		if err := r.db.Model(&tag.Tag{}).Where("id IN ?", tagIDs).Count(&count).Error; err != nil {
-			logger.Error("Failed to check tags existence", err)
-			return err
-		}
-		if int(count) != len(tagIDs) {
-			logger.Error("Some tags not found", fmt.Errorf("some tags from %v not found", tagIDs))
-			return errors.New("some tags not found")
+	// Проверяем существование всех тегов
+	for _, tagData := range bookData.Tags {
+		var existingTagData tag.Tag
+		if err := tx.First(&existingTagData, tagData.ID).Error; err != nil {
+			tx.Rollback()
+			return fmt.Errorf("tag with ID %d not found", tagData.ID)
 		}
 	}
 
 	// Проверяем существование состояния
-	if b.StateID != 0 {
-		var stateExists bool
-		if err := r.db.Model(&state.State{}).Select("1").Where("id = ?", b.StateID).Take(&stateExists).Error; err != nil {
-			logger.Error("Failed to check state existence", err)
-			return err
+	var existingStateData state.State
+	if err := tx.First(&existingStateData, bookData.StateID).Error; err != nil {
+		tx.Rollback()
+		return fmt.Errorf("state with ID %d not found", bookData.StateID)
+	}
+
+	// Проверяем фотографии только если они есть
+	if len(bookData.Photos) > 0 {
+		photoURLs := make([]string, len(bookData.Photos))
+		for i, photo := range bookData.Photos {
+			// Проверяем, что photo_url содержит base64 строку
+			if !strings.HasPrefix(photo.PhotoURL, "data:image/") {
+				tx.Rollback()
+				return fmt.Errorf("invalid photo format at index %d: must be base64 encoded image", i)
+			}
+			photoURLs[i] = photo.PhotoURL
 		}
-		if !stateExists {
-			logger.Error("State not found", fmt.Errorf("state with ID %d not found", b.StateID))
-			return errors.New("state not found")
+		if err := validatePhotos(photoURLs); err != nil {
+			tx.Rollback()
+			return fmt.Errorf("invalid photos: %w", err)
 		}
 	}
 
-	// Валидируем фотографии
-	if err := validatePhotos(b.Photos); err != nil {
-		logger.Error("Invalid photos", err)
-		return err
+	// Сохраняем книгу
+	if err := tx.Create(bookData).Error; err != nil {
+		tx.Rollback()
+		return fmt.Errorf("failed to create book: %w", err)
 	}
 
-	// Сохраняем фотографии как JSON
-	photosJSON, err := json.Marshal(b.Photos)
-	if err != nil {
-		logger.Error("Failed to marshal photos", err)
-		return err
+	// Создаем связи с тегами
+	if err := tx.Model(bookData).Association("Tags").Replace(bookData.Tags); err != nil {
+		tx.Rollback()
+		return fmt.Errorf("failed to create book-tag relations: %w", err)
 	}
-	b.PhotosJSON = string(photosJSON)
 
-	return r.db.Create(b).Error
+	// Создаем фотографии, если они есть
+	if len(bookData.Photos) > 0 {
+		for i, photo := range bookData.Photos {
+			photo.BookID = bookData.ID
+			photo.IsMain = i == 0 // Первая фотография - главная
+			// Сбрасываем ID, чтобы GORM создал новый
+			photo.ID = 0
+			if err := tx.Create(&photo).Error; err != nil {
+				tx.Rollback()
+				return fmt.Errorf("failed to create photo: %w", err)
+			}
+		}
+	}
+
+	return tx.Commit().Error
 }
 
 func (r *BookRepository) GetByID(id uint) (*book.Book, error) {
 	var b book.Book
-	if err := r.db.First(&b, id).Error; err != nil {
+	if err := r.db.Preload("Photos").First(&b, id).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
 			return nil, repository.ErrNotFound
 		}
 		return nil, err
 	}
-
-	// Конвертируем JSON обратно в []string
-	if b.PhotosJSON != "" {
-		if err := json.Unmarshal([]byte(b.PhotosJSON), &b.Photos); err != nil {
-			return nil, err
-		}
-	}
-
 	return &b, nil
 }
 
 func (r *BookRepository) Update(b *book.Book) error {
 	// Проверяем существование книги
 	var existingBook book.Book
-	if err := r.db.First(&existingBook, b.ID).Error; err != nil {
+	if err := r.db.Preload("Photos").First(&existingBook, b.ID).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
 			logger.Error("Book not found", fmt.Errorf("book with ID %d not found", b.ID))
 			return errors.New("book not found")
@@ -205,20 +213,37 @@ func (r *BookRepository) Update(b *book.Book) error {
 	}
 
 	// Валидируем фотографии
-	if err := validatePhotos(b.Photos); err != nil {
+	var photoURLs []string
+	for _, photo := range b.Photos {
+		photoURLs = append(photoURLs, photo.PhotoURL)
+	}
+	if err := validatePhotos(photoURLs); err != nil {
 		logger.Error("Invalid photos", err)
 		return err
 	}
 
-	// Сохраняем фотографии как JSON
-	photosJSON, err := json.Marshal(b.Photos)
-	if err != nil {
-		logger.Error("Failed to marshal photos", err)
-		return err
-	}
-	b.PhotosJSON = string(photosJSON)
+	// Обновляем книгу в транзакции
+	return r.db.Transaction(func(tx *gorm.DB) error {
+		// Обновляем основные данные книги
+		if err := tx.Save(b).Error; err != nil {
+			return err
+		}
 
-	return r.db.Save(b).Error
+		// Удаляем старые фотографии
+		if err := tx.Where("book_id = ?", b.ID).Delete(&book.BookPhoto{}).Error; err != nil {
+			return err
+		}
+
+		// Создаем новые фотографии
+		for i := range b.Photos {
+			b.Photos[i].BookID = b.ID
+		}
+		if err := tx.Create(&b.Photos).Error; err != nil {
+			return err
+		}
+
+		return nil
+	})
 }
 
 func (r *BookRepository) Delete(id uint) error {
@@ -233,16 +258,25 @@ func (r *BookRepository) Delete(id uint) error {
 		return err
 	}
 
-	if err := r.db.Delete(&book.Book{}, id).Error; err != nil {
-		logger.Error("Failed to delete book", err)
-		return err
-	}
-	return nil
+	// Удаляем книгу в транзакции
+	return r.db.Transaction(func(tx *gorm.DB) error {
+		// Удаляем фотографии
+		if err := tx.Where("book_id = ?", id).Delete(&book.BookPhoto{}).Error; err != nil {
+			return err
+		}
+
+		// Удаляем книгу
+		if err := tx.Delete(&book.Book{}, id).Error; err != nil {
+			return err
+		}
+
+		return nil
+	})
 }
 
 func (r *BookRepository) List() ([]*book.Book, error) {
 	var books []*book.Book
-	if err := r.db.Preload("Tags").Preload("State").Preload("User").Find(&books).Error; err != nil {
+	if err := r.db.Preload("Tags").Preload("State").Preload("User").Preload("Photos").Find(&books).Error; err != nil {
 		return nil, err
 	}
 	return books, nil
@@ -261,34 +295,25 @@ func (r *BookRepository) GetByTag(tagID uint) ([]*book.Book, error) {
 
 func (r *BookRepository) GetByTags(tagIDs []uint) ([]*book.Book, error) {
 	var books []*book.Book
-	if err := r.db.Model(&book.Book{}).
-		Joins("JOIN book_tags ON book_tags.book_id = books.id").
+	if err := r.db.Preload("Tags").Preload("State").Preload("User").Preload("Photos").
+		Joins("JOIN book_tags ON books.id = book_tags.book_id").
 		Where("book_tags.tag_id IN ?", tagIDs).
 		Group("books.id").
-		Having("COUNT(DISTINCT book_tags.tag_id) = ?", len(tagIDs)).
 		Find(&books).Error; err != nil {
 		return nil, err
 	}
-
-	// Конвертируем JSON обратно в []string для каждой книги
-	for _, b := range books {
-		if b.PhotosJSON != "" {
-			if err := json.Unmarshal([]byte(b.PhotosJSON), &b.Photos); err != nil {
-				return nil, err
-			}
-		}
-	}
-
 	return books, nil
 }
 
 func (r *BookRepository) AddTags(bookID uint, tagIDs []uint) error {
-	for _, tagID := range tagIDs {
-		if err := r.db.Exec("INSERT INTO book_tags (book_id, tag_id) VALUES (?, ?)", bookID, tagID).Error; err != nil {
-			return err
+	return r.db.Transaction(func(tx *gorm.DB) error {
+		for _, tagID := range tagIDs {
+			if err := tx.Exec("INSERT INTO book_tags (book_id, tag_id) VALUES (?, ?)", bookID, tagID).Error; err != nil {
+				return err
+			}
 		}
-	}
-	return nil
+		return nil
+	})
 }
 
 func (r *BookRepository) GetAll(page, pageSize int) ([]*book.Book, int64, error) {
@@ -300,17 +325,10 @@ func (r *BookRepository) GetAll(page, pageSize int) ([]*book.Book, int64, error)
 	}
 
 	offset := (page - 1) * pageSize
-	if err := r.db.Offset(offset).Limit(pageSize).Find(&books).Error; err != nil {
+	if err := r.db.Preload("Tags").Preload("State").Preload("User").Preload("Photos").
+		Offset(offset).Limit(pageSize).
+		Find(&books).Error; err != nil {
 		return nil, 0, err
-	}
-
-	// Конвертируем JSON обратно в []string для каждой книги
-	for _, b := range books {
-		if b.PhotosJSON != "" {
-			if err := json.Unmarshal([]byte(b.PhotosJSON), &b.Photos); err != nil {
-				return nil, 0, err
-			}
-		}
 	}
 
 	return books, total, nil
@@ -325,17 +343,11 @@ func (r *BookRepository) GetUserBooks(userID uint, page, pageSize int) ([]*book.
 	}
 
 	offset := (page - 1) * pageSize
-	if err := r.db.Where("user_id = ?", userID).Offset(offset).Limit(pageSize).Find(&books).Error; err != nil {
+	if err := r.db.Preload("Tags").Preload("State").Preload("User").Preload("Photos").
+		Where("user_id = ?", userID).
+		Offset(offset).Limit(pageSize).
+		Find(&books).Error; err != nil {
 		return nil, 0, err
-	}
-
-	// Конвертируем JSON обратно в []string для каждой книги
-	for _, b := range books {
-		if b.PhotosJSON != "" {
-			if err := json.Unmarshal([]byte(b.PhotosJSON), &b.Photos); err != nil {
-				return nil, 0, err
-			}
-		}
 	}
 
 	return books, total, nil

@@ -9,8 +9,8 @@ import (
 	"time"
 )
 
-// BookUsecase определяет интерфейс для работы с книгами
-type BookUsecase interface {
+// BookUseCase определяет интерфейс для работы с книгами
+type BookUseCase interface {
 	CreateBook(book *book.Book, tagIDs []uint) error
 	GetBookByID(id uint) (*book.Book, error)
 	GetAllBooks(page, pageSize int) ([]*book.Book, int64, error)
@@ -22,8 +22,8 @@ type BookUsecase interface {
 	GetUserBooks(userID uint, page, pageSize int) ([]*book.Book, int64, error)
 }
 
-// bookUsecase реализует интерфейс BookUsecase
-type bookUsecase struct {
+// bookUseCase реализует интерфейс BookUseCase
+type bookUseCase struct {
 	bookRepo  *mysql.BookRepository
 	tagRepo   *mysql.TagRepository
 	stateRepo *mysql.StateRepository
@@ -31,9 +31,9 @@ type bookUsecase struct {
 	bookSvc   *book.Service
 }
 
-// NewBookUsecase создает новый экземпляр bookUsecase
-func NewBookUsecase(bookRepo *mysql.BookRepository, tagRepo *mysql.TagRepository, stateRepo *mysql.StateRepository, cache *cache.Cache) BookUsecase {
-	return &bookUsecase{
+// NewBookUseCase создает новый экземпляр bookUseCase
+func NewBookUseCase(bookRepo *mysql.BookRepository, tagRepo *mysql.TagRepository, stateRepo *mysql.StateRepository, cache *cache.Cache) BookUseCase {
+	return &bookUseCase{
 		bookRepo:  bookRepo,
 		tagRepo:   tagRepo,
 		stateRepo: stateRepo,
@@ -43,7 +43,7 @@ func NewBookUsecase(bookRepo *mysql.BookRepository, tagRepo *mysql.TagRepository
 }
 
 // CreateBook создает новую книгу
-func (u *bookUsecase) CreateBook(book *book.Book, tagIDs []uint) error {
+func (u *bookUseCase) CreateBook(book *book.Book, tagIDs []uint) error {
 	// Если состояние не указано, устанавливаем состояние "available"
 	if book.StateID == 0 {
 		// Используем ID 1 для состояния "available"
@@ -69,15 +69,16 @@ func (u *bookUsecase) CreateBook(book *book.Book, tagIDs []uint) error {
 	}
 
 	// Инвалидация кеша
-	u.cache.Delete("books")
+	u.cache.DeletePattern("books:")
+	u.cache.Delete("books:all")
 
 	return nil
 }
 
 // GetBookByID получает книгу по ID
-func (u *bookUsecase) GetBookByID(id uint) (*book.Book, error) {
+func (u *bookUseCase) GetBookByID(id uint) (*book.Book, error) {
 	// Попытка получить книгу из кеша
-	cacheKey := fmt.Sprintf("book:%d", id)
+	cacheKey := fmt.Sprintf("books:id:%d", id)
 	if cached, found := u.cache.Get(cacheKey); found {
 		if book, ok := cached.(*book.Book); ok {
 			return book, nil
@@ -97,7 +98,7 @@ func (u *bookUsecase) GetBookByID(id uint) (*book.Book, error) {
 }
 
 // GetBooksByTags получает книги по тегам
-func (u *bookUsecase) GetBooksByTags(tagIDs []uint) ([]*book.Book, error) {
+func (u *bookUseCase) GetBooksByTags(tagIDs []uint) ([]*book.Book, error) {
 	// Попытка получить книги из кеша
 	cacheKey := fmt.Sprintf("books:tags:%v", tagIDs)
 	if cached, found := u.cache.Get(cacheKey); found {
@@ -119,7 +120,7 @@ func (u *bookUsecase) GetBooksByTags(tagIDs []uint) ([]*book.Book, error) {
 }
 
 // AddTagsToBook добавляет теги к книге
-func (u *bookUsecase) AddTagsToBook(bookID uint, tagIDs []uint) error {
+func (u *bookUseCase) AddTagsToBook(bookID uint, tagIDs []uint) error {
 	// Получаем книгу
 	book, err := u.GetBookByID(bookID)
 	if err != nil {
@@ -145,14 +146,14 @@ func (u *bookUsecase) AddTagsToBook(bookID uint, tagIDs []uint) error {
 	}
 
 	// Инвалидация кеша
-	u.cache.Delete(fmt.Sprintf("book:%d", bookID))
-	u.cache.Delete("books")
+	u.cache.DeletePattern("books:")
+	u.cache.Delete("books:all")
 
 	return nil
 }
 
 // UpdateBook обновляет существующую книгу
-func (u *bookUsecase) UpdateBook(id uint, dto *book.UpdateBookDTO) (*book.Book, error) {
+func (u *bookUseCase) UpdateBook(id uint, dto *book.UpdateBookDTO) (*book.Book, error) {
 	// Получаем существующую книгу
 	existingBook, err := u.GetBookByID(id)
 	if err != nil {
@@ -183,14 +184,14 @@ func (u *bookUsecase) UpdateBook(id uint, dto *book.UpdateBookDTO) (*book.Book, 
 	}
 
 	// Инвалидация кеша
-	u.cache.Delete(fmt.Sprintf("book:%d", id))
-	u.cache.Delete("books")
+	u.cache.DeletePattern("books:")
+	u.cache.Delete("books:all")
 
 	return existingBook, nil
 }
 
 // UpdateBookState обновляет состояние книги
-func (u *bookUsecase) UpdateBookState(id uint, stateID uint) (*book.Book, error) {
+func (u *bookUseCase) UpdateBookState(id uint, stateID uint) (*book.Book, error) {
 	// Получаем существующую книгу
 	existingBook, err := u.GetBookByID(id)
 	if err != nil {
@@ -211,28 +212,28 @@ func (u *bookUsecase) UpdateBookState(id uint, stateID uint) (*book.Book, error)
 	}
 
 	// Инвалидация кеша
-	u.cache.Delete(fmt.Sprintf("book:%d", id))
-	u.cache.Delete("books")
+	u.cache.DeletePattern("books:")
+	u.cache.Delete("books:all")
 
 	return existingBook, nil
 }
 
 // DeleteBook удаляет книгу
-func (u *bookUsecase) DeleteBook(id uint) error {
+func (u *bookUseCase) DeleteBook(id uint) error {
 	// Удаляем из репозитория
 	if err := u.bookRepo.Delete(id); err != nil {
 		return err
 	}
 
 	// Инвалидация кеша
-	u.cache.Delete(fmt.Sprintf("book:%d", id))
-	u.cache.Delete("books")
+	u.cache.DeletePattern("books:")
+	u.cache.Delete("books:all")
 
 	return nil
 }
 
 // GetAllBooks получает все книги с пагинацией
-func (u *bookUsecase) GetAllBooks(page, pageSize int) ([]*book.Book, int64, error) {
+func (u *bookUseCase) GetAllBooks(page, pageSize int) ([]*book.Book, int64, error) {
 	if page < 1 {
 		page = 1
 	}
@@ -269,7 +270,7 @@ func (u *bookUsecase) GetAllBooks(page, pageSize int) ([]*book.Book, int64, erro
 }
 
 // GetUserBooks получает книги пользователя с пагинацией
-func (u *bookUsecase) GetUserBooks(userID uint, page, pageSize int) ([]*book.Book, int64, error) {
+func (u *bookUseCase) GetUserBooks(userID uint, page, pageSize int) ([]*book.Book, int64, error) {
 	// Валидация параметров пагинации
 	if page < 1 {
 		page = 1

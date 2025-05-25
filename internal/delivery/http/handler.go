@@ -4,18 +4,18 @@ import (
 	"booktrading/internal/domain/book"
 	"booktrading/internal/domain/state"
 	"booktrading/internal/domain/tag"
+	"booktrading/internal/domain/user"
 	"booktrading/internal/pkg/jwt"
 	"booktrading/internal/pkg/logger"
 	"booktrading/internal/pkg/validator"
 	"booktrading/internal/usecase"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"net/http"
 	"strconv"
 
 	"github.com/go-chi/chi/v5"
-	httpSwagger "github.com/swaggo/http-swagger"
+	"github.com/go-chi/jwtauth/v5"
 )
 
 // @x-codeSamples.languages ["curl", "python", "javascript"]
@@ -53,21 +53,23 @@ type ErrorResponse struct {
 
 // Handler представляет HTTP обработчик
 type Handler struct {
-	bookUsecase  usecase.BookUsecase
-	tagUsecase   usecase.TagUsecase
-	stateUsecase usecase.StateUsecase
-	userUsecase  usecase.UserUsecase
+	bookUsecase  usecase.BookUseCase
+	tagUsecase   usecase.TagUseCase
+	stateUsecase usecase.StateUseCase
+	userUsecase  usecase.UserUseCase
 	jwtSvc       *jwt.Service
 	validate     *validator.Validate
+	tokenAuth    *jwtauth.JWTAuth
 }
 
 // NewHandler создает новый экземпляр HTTP обработчика
 func NewHandler(
-	bookUsecase usecase.BookUsecase,
-	tagUsecase usecase.TagUsecase,
-	stateUsecase usecase.StateUsecase,
-	userUsecase usecase.UserUsecase,
+	bookUsecase usecase.BookUseCase,
+	tagUsecase usecase.TagUseCase,
+	stateUsecase usecase.StateUseCase,
+	userUsecase usecase.UserUseCase,
 	jwtSvc *jwt.Service,
+	tokenAuth *jwtauth.JWTAuth,
 ) *Handler {
 	return &Handler{
 		bookUsecase:  bookUsecase,
@@ -76,63 +78,22 @@ func NewHandler(
 		userUsecase:  userUsecase,
 		jwtSvc:       jwtSvc,
 		validate:     validator.New(),
+		tokenAuth:    tokenAuth,
 	}
 }
 
-// InitRoutes инициализирует маршруты API
-func (h *Handler) InitRoutes(r chi.Router) {
-	// Swagger документация
-	r.Get("/swagger/*", httpSwagger.Handler(
-		httpSwagger.URL("/swagger/doc.json"), // Путь к swagger.json
-	))
-
-	// API маршруты
-	r.Route("/api/v1", func(r chi.Router) {
-		// Группа маршрутов для тегов
-		r.Route("/tags", func(r chi.Router) {
-			r.Post("/", h.createTag)
-			r.Get("/", h.getAllTags)
-			r.Get("/{id}", h.getTagByID)
-			r.Get("/popular", h.getPopularTags)
-			r.Delete("/{id}", h.deleteTag)
-			r.Put("/{id}", h.updateTag)
-		})
-
-		// Группа маршрутов для книг
-		r.Route("/books", func(r chi.Router) {
-			r.Post("/", h.createBook)
-			r.Get("/{id}", h.getBookByID)
-			r.Get("/search", h.searchBooksByTags)
-			r.Post("/{id}/tags", h.addTagsToBook)
-			r.Put("/{id}", h.updateBook)
-			r.Patch("/{id}/state", h.updateBookState)
-			r.Delete("/{id}", h.deleteBook)
-			r.Get("/", h.getAllBooks)
-		})
-
-		// Группа маршрутов для состояний
-		r.Route("/states", func(r chi.Router) {
-			r.Post("/", h.createState)
-			r.Get("/", h.getAllStates)
-			r.Get("/{id}", h.getStateByID)
-			r.Put("/{id}", h.updateState)
-			r.Delete("/{id}", h.deleteState)
-		})
-	})
-}
-
-// @Summary Create tag
+// @Summary Create new tag
+// @Description Create a new tag with the provided name
 // @Tags Tags
 // @Accept json
 // @Produce json
-// @Param tag body tag.CreateTagDTO true "Tag details"
+// @Param tag body tag.CreateTagDTO true "Tag data"
 // @Success 201 {object} tag.Tag
-// @Failure 400,401,500 {object} ErrorResponse
+// @Failure 400 {object} ErrorResponse
+// @Failure 401 {object} ErrorResponse
+// @Failure 500 {object} ErrorResponse
 // @Security Bearer
 // @Router /api/v1/tags [post]
-// @x-tryItOutEnabled true
-// @x-validateRequest true
-// @x-validateResponse true
 func (h *Handler) createTag(w http.ResponseWriter, r *http.Request) {
 	var dto tag.CreateTagDTO
 	if err := json.NewDecoder(r.Body).Decode(&dto); err != nil {
@@ -165,12 +126,14 @@ func (h *Handler) createTag(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(newTag)
 }
 
-// @Summary Get tag
+// @Summary Get tag by ID
+// @Description Get tag information by its ID
 // @Tags Tags
 // @Produce json
 // @Param id path int true "Tag ID"
 // @Success 200 {object} tag.Tag
-// @Failure 400,404 {object} ErrorResponse
+// @Failure 400 {object} ErrorResponse
+// @Failure 404 {object} ErrorResponse
 // @Router /api/v1/tags/{id} [get]
 func (h *Handler) getTagByID(w http.ResponseWriter, r *http.Request) {
 	id, err := strconv.ParseUint(chi.URLParam(r, "id"), 10, 32)
@@ -192,10 +155,12 @@ func (h *Handler) getTagByID(w http.ResponseWriter, r *http.Request) {
 }
 
 // @Summary Get popular tags
+// @Description Get list of popular tags with optional limit
 // @Tags Tags
 // @Produce json
-// @Param limit query int false "Number of tags"
+// @Param limit query int false "Number of tags to return (default: 10)"
 // @Success 200 {array} tag.Tag
+// @Failure 500 {object} ErrorResponse
 // @Router /api/v1/tags/popular [get]
 func (h *Handler) getPopularTags(w http.ResponseWriter, r *http.Request) {
 	limit := 10 // Значение по умолчанию
@@ -216,25 +181,32 @@ func (h *Handler) getPopularTags(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(tags)
 }
 
-// @Summary Create a new book
-// @Description Create a new book with the given details
-// @Tags books
+// @Summary Create new book
+// @Description Create a new book with the provided details
+// @Tags Books
 // @Accept json
 // @Produce json
-// @Param book body book.CreateBookDTO true "Book details"
+// @Param book body book.CreateBookDTO true "Book data"
 // @Success 201 {object} book.Book
-// @Failure 400,401,500 {object} ErrorResponse
+// @Failure 400 {object} ErrorResponse
+// @Failure 401 {object} ErrorResponse
+// @Failure 500 {object} ErrorResponse
 // @Security Bearer
 // @Router /api/v1/books [post]
-// @x-tryItOutEnabled true
-// @x-validateRequest true
-// @x-validateResponse true
 func (h *Handler) createBook(w http.ResponseWriter, r *http.Request) {
-	// Получаем ID пользователя из контекста
-	userID, ok := r.Context().Value(UserIDKey).(uint)
+	// Get claims from context
+	_, claims, err := jwtauth.FromContext(r.Context())
+	if err != nil {
+		logger.Error("Failed to get claims from context", err)
+		http.Error(w, "Authentication failed: Token not found", http.StatusUnauthorized)
+		return
+	}
+
+	// Get user ID from claims
+	userID, ok := claims["user_id"].(float64)
 	if !ok {
-		logger.Error("Failed to get user ID from context", errors.New("user ID not found in context"))
-		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		logger.Error("User ID not found in claims", nil)
+		http.Error(w, "Authentication failed: User ID not found in token claims", http.StatusUnauthorized)
 		return
 	}
 
@@ -245,71 +217,71 @@ func (h *Handler) createBook(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Validate the DTO
 	if err := h.validate.Struct(dto); err != nil {
 		logger.Error("Validation failed", err)
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		http.Error(w, "Validation failed: "+err.Error(), http.StatusBadRequest)
 		return
 	}
 
-	// Проверяем существование состояния
-	state, err := h.stateUsecase.GetByID(uint(dto.StateID))
-	if err != nil {
-		logger.Error("Invalid state ID", err)
-		http.Error(w, "Invalid state ID", http.StatusBadRequest)
-		return
-	}
+	// Create new book with user ID from token
+	newBook := dto.ToBook()
+	newBook.UserID = uint(userID)
 
-	// Проверяем существование всех тегов
-	for _, tagID := range dto.TagIDs {
-		_, err := h.tagUsecase.GetTagByID(uint(tagID))
-		if err != nil {
-			logger.Error("Invalid tag ID", err)
-			http.Error(w, fmt.Sprintf("Invalid tag ID: %d", tagID), http.StatusBadRequest)
-			return
-		}
-	}
-
-	// Create new book
-	newBook := &book.Book{
-		Title:       dto.Title,
-		Author:      dto.Author,
-		Description: dto.Description,
-		Photos:      dto.Photos,
-		UserID:      userID,
-		StateID:     state.ID,
-	}
-
-	// Convert tag IDs to uint
-	tagIDs := make([]uint, len(dto.TagIDs))
-	for i, id := range dto.TagIDs {
-		tagIDs[i] = uint(id)
-	}
-
-	// Save book
-	if err := h.bookUsecase.CreateBook(newBook, tagIDs); err != nil {
+	// Save book and associate tags
+	if err := h.bookUsecase.CreateBook(newBook, dto.TagIDs); err != nil {
 		logger.Error("Failed to create book", err)
-		http.Error(w, "Failed to create book", http.StatusInternalServerError)
+		http.Error(w, "Failed to create book: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
 
 	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusCreated)
 	json.NewEncoder(w).Encode(newBook)
 }
 
-// @Summary Update a book
-// @Description Update book details
-// @Tags books
+// @Summary Get book by ID
+// @Description Get book information by its ID
+// @Tags Books
+// @Produce json
+// @Param id path int true "Book ID"
+// @Success 200 {object} book.Book
+// @Failure 400 {object} ErrorResponse
+// @Failure 404 {object} ErrorResponse
+// @Router /api/v1/books/{id} [get]
+func (h *Handler) getBookByID(w http.ResponseWriter, r *http.Request) {
+	id, err := strconv.ParseUint(chi.URLParam(r, "id"), 10, 32)
+	if err != nil {
+		logger.Error("Invalid book ID", err)
+		http.Error(w, "Invalid book ID", http.StatusBadRequest)
+		return
+	}
+
+	book, err := h.bookUsecase.GetBookByID(uint(id))
+	if err != nil {
+		logger.Error("Failed to get book", err)
+		http.Error(w, "Book not found", http.StatusNotFound)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(book)
+}
+
+// @Summary Update book
+// @Description Update existing book information
+// @Tags Books
 // @Accept json
 // @Produce json
 // @Param id path int true "Book ID"
-// @Param book body book.UpdateBookDTO true "Book details"
+// @Param book body book.UpdateBookDTO true "Updated book data"
 // @Success 200 {object} book.Book
-// @Failure 400,401,404,500 {object} ErrorResponse
+// @Failure 400 {object} ErrorResponse
+// @Failure 401 {object} ErrorResponse
+// @Failure 404 {object} ErrorResponse
+// @Failure 500 {object} ErrorResponse
 // @Security Bearer
 // @Router /api/v1/books/{id} [put]
-// @x-tryItOutEnabled true
-// @x-validateRequest true
-// @x-validateResponse true
 func (h *Handler) updateBook(w http.ResponseWriter, r *http.Request) {
 	id, err := strconv.ParseUint(chi.URLParam(r, "id"), 10, 32)
 	if err != nil {
@@ -344,38 +316,40 @@ func (h *Handler) updateBook(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(updatedBook)
 }
 
-// @Summary Get book by ID
-// @Description Get book information by ID
-// @Tags books
-// @Produce json
+// @Summary Delete book
+// @Description Delete book by ID
+// @Tags Books
 // @Param id path int true "Book ID"
-// @Success 200 {object} book.Book
-// @Router /api/v1/books/{id} [get]
-func (h *Handler) getBookByID(w http.ResponseWriter, r *http.Request) {
+// @Success 204 "No Content"
+// @Failure 400 {object} ErrorResponse
+// @Failure 401 {object} ErrorResponse
+// @Failure 404 {object} ErrorResponse
+// @Failure 500 {object} ErrorResponse
+// @Security Bearer
+// @Router /api/v1/books/{id} [delete]
+func (h *Handler) deleteBook(w http.ResponseWriter, r *http.Request) {
 	id, err := strconv.ParseUint(chi.URLParam(r, "id"), 10, 32)
 	if err != nil {
-		logger.Error("Invalid book ID", err)
 		http.Error(w, "Invalid book ID", http.StatusBadRequest)
 		return
 	}
 
-	book, err := h.bookUsecase.GetBookByID(uint(id))
-	if err != nil {
-		logger.Error("Failed to get book", err)
-		http.Error(w, "Book not found", http.StatusNotFound)
+	if err := h.bookUsecase.DeleteBook(uint(id)); err != nil {
+		http.Error(w, "Failed to delete book", http.StatusInternalServerError)
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(book)
+	w.WriteHeader(http.StatusNoContent)
 }
 
 // @Summary Search books by tags
-// @Description Search books by tag IDs
-// @Tags books
+// @Description Search books by provided tag IDs
+// @Tags Books
 // @Produce json
 // @Param tagIds query []int true "Tag IDs"
 // @Success 200 {array} book.Book
+// @Failure 400 {object} ErrorResponse
+// @Failure 500 {object} ErrorResponse
 // @Router /api/v1/books/search [get]
 func (h *Handler) searchBooksByTags(w http.ResponseWriter, r *http.Request) {
 	tagIDsStr := r.URL.Query()["tagIds"]
@@ -407,14 +381,17 @@ func (h *Handler) searchBooksByTags(w http.ResponseWriter, r *http.Request) {
 }
 
 // @Summary Add tags to book
-// @Description Add tags to an existing book
-// @Tags books
+// @Description Add new tags to an existing book
+// @Tags Books
 // @Accept json
 // @Produce json
 // @Param id path int true "Book ID"
-// @Param tagIds body []int true "Tag IDs"
+// @Param tagIds body []int true "Tag IDs to add"
 // @Success 200 {object} book.Book
-// @Failure 400,401,404,500 {object} ErrorResponse
+// @Failure 400 {object} ErrorResponse
+// @Failure 401 {object} ErrorResponse
+// @Failure 404 {object} ErrorResponse
+// @Failure 500 {object} ErrorResponse
 // @Security Bearer
 // @Router /api/v1/books/{id}/tags [post]
 func (h *Handler) addTagsToBook(w http.ResponseWriter, r *http.Request) {
@@ -454,14 +431,16 @@ func (h *Handler) addTagsToBook(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(book)
 }
 
-// @Summary Create a new state
+// @Summary Create new state
 // @Description Create a new book state
-// @Tags states
+// @Tags States
 // @Accept json
 // @Produce json
-// @Param state body state.CreateStateDTO true "State object"
+// @Param state body state.CreateStateDTO true "State data"
 // @Success 201 {object} state.State
-// @Failure 400,401,500 {object} ErrorResponse
+// @Failure 400 {object} ErrorResponse
+// @Failure 401 {object} ErrorResponse
+// @Failure 500 {object} ErrorResponse
 // @Security Bearer
 // @Router /api/v1/states [post]
 func (h *Handler) createState(w http.ResponseWriter, r *http.Request) {
@@ -484,9 +463,10 @@ func (h *Handler) createState(w http.ResponseWriter, r *http.Request) {
 
 // @Summary Get all states
 // @Description Get list of all book states
-// @Tags states
+// @Tags States
 // @Produce json
 // @Success 200 {array} state.State
+// @Failure 500 {object} ErrorResponse
 // @Router /api/v1/states [get]
 func (h *Handler) getAllStates(w http.ResponseWriter, r *http.Request) {
 	states, err := h.stateUsecase.GetAll()
@@ -501,11 +481,13 @@ func (h *Handler) getAllStates(w http.ResponseWriter, r *http.Request) {
 }
 
 // @Summary Get state by ID
-// @Description Get a book state by ID
-// @Tags states
+// @Description Get book state information by its ID
+// @Tags States
 // @Produce json
 // @Param id path int true "State ID"
 // @Success 200 {object} state.State
+// @Failure 400 {object} ErrorResponse
+// @Failure 404 {object} ErrorResponse
 // @Router /api/v1/states/{id} [get]
 func (h *Handler) getStateByID(w http.ResponseWriter, r *http.Request) {
 	id, err := strconv.ParseUint(chi.URLParam(r, "id"), 10, 32)
@@ -527,14 +509,17 @@ func (h *Handler) getStateByID(w http.ResponseWriter, r *http.Request) {
 }
 
 // @Summary Update state
-// @Description Update a book state
-// @Tags states
+// @Description Update existing book state information
+// @Tags States
 // @Accept json
 // @Produce json
 // @Param id path int true "State ID"
-// @Param state body state.UpdateStateDTO true "State object"
+// @Param state body state.UpdateStateDTO true "Updated state data"
 // @Success 200 {object} state.State
-// @Failure 400,401,404,500 {object} ErrorResponse
+// @Failure 400 {object} ErrorResponse
+// @Failure 401 {object} ErrorResponse
+// @Failure 404 {object} ErrorResponse
+// @Failure 500 {object} ErrorResponse
 // @Security Bearer
 // @Router /api/v1/states/{id} [put]
 func (h *Handler) updateState(w http.ResponseWriter, r *http.Request) {
@@ -564,11 +549,14 @@ func (h *Handler) updateState(w http.ResponseWriter, r *http.Request) {
 }
 
 // @Summary Delete state
-// @Description Delete a book state
-// @Tags states
+// @Description Delete book state by ID
+// @Tags States
 // @Param id path int true "State ID"
 // @Success 204 "No Content"
-// @Failure 400,401,404,500 {object} ErrorResponse
+// @Failure 400 {object} ErrorResponse
+// @Failure 401 {object} ErrorResponse
+// @Failure 404 {object} ErrorResponse
+// @Failure 500 {object} ErrorResponse
 // @Security Bearer
 // @Router /api/v1/states/{id} [delete]
 func (h *Handler) deleteState(w http.ResponseWriter, r *http.Request) {
@@ -588,118 +576,14 @@ func (h *Handler) deleteState(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
-// @Summary Delete book
-// @Description Delete a book by ID
-// @Tags books
-// @Param id path int true "Book ID"
-// @Success 204 "No Content"
-// @Failure 400,401,404,500 {object} ErrorResponse
-// @Security Bearer
-// @Router /api/v1/books/{id} [delete]
-func (h *Handler) deleteBook(w http.ResponseWriter, r *http.Request) {
-	id, err := strconv.ParseUint(chi.URLParam(r, "id"), 10, 32)
-	if err != nil {
-		http.Error(w, "Invalid book ID", http.StatusBadRequest)
-		return
-	}
-
-	if err := h.bookUsecase.DeleteBook(uint(id)); err != nil {
-		http.Error(w, "Failed to delete book", http.StatusInternalServerError)
-		return
-	}
-
-	w.WriteHeader(http.StatusNoContent)
-}
-
-// @Summary Delete tag
-// @Tags Tags
-// @Param id path int true "Tag ID"
-// @Success 204 "No Content"
-// @Failure 400,401,404,500 {object} ErrorResponse
-// @Security Bearer
-// @Router /api/v1/tags/{id} [delete]
-func (h *Handler) deleteTag(w http.ResponseWriter, r *http.Request) {
-	id, err := strconv.ParseUint(chi.URLParam(r, "id"), 10, 32)
-	if err != nil {
-		http.Error(w, "Invalid tag ID", http.StatusBadRequest)
-		return
-	}
-
-	if err := h.tagUsecase.DeleteTag(uint(id)); err != nil {
-		http.Error(w, "Failed to delete tag", http.StatusInternalServerError)
-		return
-	}
-
-	w.WriteHeader(http.StatusNoContent)
-}
-
-// @Summary Get all tags
-// @Tags Tags
-// @Produce json
-// @Success 200 {array} tag.Tag
-// @Router /api/v1/tags [get]
-func (h *Handler) getAllTags(w http.ResponseWriter, r *http.Request) {
-	tags, err := h.tagUsecase.GetAllTags()
-	if err != nil {
-		logger.Error("Failed to get tags", err)
-		http.Error(w, "Failed to get tags", http.StatusInternalServerError)
-		return
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(tags)
-}
-
-// @Summary Update book state
-// @Description Update the state of a book
-// @Tags books
-// @Accept json
-// @Produce json
-// @Param id path int true "Book ID"
-// @Param state body book.UpdateBookStateDTO true "New state"
-// @Success 200 {object} book.Book
-// @Failure 400,401,404,500 {object} ErrorResponse
-// @Security Bearer
-// @Router /api/v1/books/{id}/state [patch]
-func (h *Handler) updateBookState(w http.ResponseWriter, r *http.Request) {
-	id, err := strconv.ParseUint(chi.URLParam(r, "id"), 10, 32)
-	if err != nil {
-		logger.Error("Invalid book ID", err)
-		http.Error(w, "Invalid book ID", http.StatusBadRequest)
-		return
-	}
-
-	var dto book.UpdateBookStateDTO
-	if err := json.NewDecoder(r.Body).Decode(&dto); err != nil {
-		logger.Error("Failed to decode request body", err)
-		http.Error(w, "Invalid request body", http.StatusBadRequest)
-		return
-	}
-
-	if err := h.validate.Struct(dto); err != nil {
-		logger.Error("Validation failed", err)
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
-
-	book, err := h.bookUsecase.UpdateBookState(uint(id), uint(dto.StateID))
-	if err != nil {
-		logger.Error("Failed to update book state", err)
-		http.Error(w, "Failed to update book state", http.StatusInternalServerError)
-		return
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(book)
-}
-
 // @Summary Get all books
-// @Description Get a list of all books with pagination
-// @Tags books
+// @Description Get paginated list of all books
+// @Tags Books
 // @Produce json
 // @Param page query int false "Page number (default: 1)"
 // @Param pageSize query int false "Items per page (default: 10, max: 100)"
 // @Success 200 {object} map[string]interface{} "Returns books and pagination info"
+// @Failure 500 {object} ErrorResponse
 // @Router /api/v1/books [get]
 func (h *Handler) getAllBooks(w http.ResponseWriter, r *http.Request) {
 	// Получаем параметры пагинации
@@ -742,12 +626,16 @@ func (h *Handler) getAllBooks(w http.ResponseWriter, r *http.Request) {
 
 // @Summary Get user books
 // @Description Get paginated list of user's books
-// @Tags books
+// @Tags Users
 // @Produce json
 // @Param id path int true "User ID"
 // @Param page query int false "Page number (default: 1)"
 // @Param pageSize query int false "Items per page (default: 10, max: 100)"
 // @Success 200 {object} map[string]interface{} "Returns books and pagination info"
+// @Failure 400 {object} ErrorResponse
+// @Failure 401 {object} ErrorResponse
+// @Failure 404 {object} ErrorResponse
+// @Failure 500 {object} ErrorResponse
 // @Security Bearer
 // @Router /api/v1/users/{id}/books [get]
 func (h *Handler) getUserBooks(w http.ResponseWriter, r *http.Request) {
@@ -788,13 +676,17 @@ func (h *Handler) getUserBooks(w http.ResponseWriter, r *http.Request) {
 }
 
 // @Summary Update tag
+// @Description Update existing tag information
 // @Tags Tags
 // @Accept json
 // @Produce json
 // @Param id path int true "Tag ID"
-// @Param tag body tag.UpdateTagDTO true "Tag details"
+// @Param tag body tag.UpdateTagDTO true "Updated tag data"
 // @Success 200 {object} tag.Tag
-// @Failure 400,401,404,500 {object} ErrorResponse
+// @Failure 400 {object} ErrorResponse
+// @Failure 401 {object} ErrorResponse
+// @Failure 404 {object} ErrorResponse
+// @Failure 500 {object} ErrorResponse
 // @Security Bearer
 // @Router /api/v1/tags/{id} [put]
 func (h *Handler) updateTag(w http.ResponseWriter, r *http.Request) {
@@ -834,10 +726,11 @@ func (h *Handler) updateTag(w http.ResponseWriter, r *http.Request) {
 // @Accept json
 // @Produce json
 // @Success 200 {object} jwt.TokenPair
-// @Failure 401,500 {object} ErrorResponse
+// @Failure 401 {object} ErrorResponse
+// @Failure 500 {object} ErrorResponse
 // @Security RefreshToken
 // @Router /api/v1/auth/refresh [post]
-func (h *Handler) RefreshToken(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) refreshToken(w http.ResponseWriter, r *http.Request) {
 	refreshToken := r.Header.Get("X-Refresh-Token")
 	if refreshToken == "" {
 		http.Error(w, "Refresh token is required", http.StatusUnauthorized)
@@ -862,4 +755,346 @@ func (h *Handler) RefreshToken(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(tokenPair)
+}
+
+// @Summary Get all users
+// @Description Get paginated list of all users
+// @Tags Users
+// @Produce json
+// @Param page query int false "Page number (default: 1)"
+// @Param pageSize query int false "Items per page (default: 10, max: 100)"
+// @Success 200 {object} map[string]interface{} "Returns users and pagination info"
+// @Failure 401 {object} ErrorResponse
+// @Failure 500 {object} ErrorResponse
+// @Security Bearer
+// @Router /api/v1/users [get]
+func (h *Handler) getAllUsers(w http.ResponseWriter, r *http.Request) {
+	// Получаем параметры пагинации из запроса
+	page := 1
+	if pageStr := r.URL.Query().Get("page"); pageStr != "" {
+		if p, err := strconv.Atoi(pageStr); err == nil && p > 0 {
+			page = p
+		}
+	}
+
+	pageSize := 10
+	if pageSizeStr := r.URL.Query().Get("pageSize"); pageSizeStr != "" {
+		if ps, err := strconv.Atoi(pageSizeStr); err == nil && ps > 0 && ps <= 100 {
+			pageSize = ps
+		}
+	}
+
+	// Call the usecase to get all users
+	users, total, err := h.userUsecase.GetAll(page, pageSize)
+	if err != nil {
+		logger.Error("Failed to get all users", err)
+		http.Error(w, "Failed to get users", http.StatusInternalServerError)
+		return
+	}
+
+	// Format the response with pagination info
+	response := map[string]interface{}{
+		"users": users,
+		"pagination": map[string]interface{}{
+			"total":      total,
+			"page":       page,
+			"pageSize":   pageSize,
+			"totalPages": (total + int64(pageSize) - 1) / int64(pageSize),
+		},
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(response)
+}
+
+// @Summary Get user by ID
+// @Description Get user information by ID
+// @Tags Users
+// @Produce json
+// @Param id path int true "User ID"
+// @Success 200 {object} user.User
+// @Failure 400 {object} ErrorResponse
+// @Failure 401 {object} ErrorResponse
+// @Failure 404 {object} ErrorResponse
+// @Security Bearer
+// @Router /api/v1/users/{id} [get]
+func (h *Handler) getUserByID(w http.ResponseWriter, r *http.Request) {
+	idStr := chi.URLParam(r, "id")
+	if idStr == "" {
+		http.Error(w, "User ID is required", http.StatusBadRequest)
+		return
+	}
+
+	id, err := strconv.ParseUint(idStr, 10, 32)
+	if err != nil {
+		http.Error(w, "Invalid user ID", http.StatusBadRequest)
+		return
+	}
+
+	u, err := h.userUsecase.GetByID(uint(id))
+	if err != nil {
+		logger.Error("Failed to get user by ID", err)
+		http.Error(w, "User not found", http.StatusNotFound)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(u)
+}
+
+// @Summary Update user
+// @Description Update existing user information
+// @Tags Users
+// @Accept json
+// @Produce json
+// @Param id path int true "User ID"
+// @Param user body user.UpdateUserDTO true "Updated user data"
+// @Success 200 {object} user.User
+// @Failure 400 {object} ErrorResponse
+// @Failure 401 {object} ErrorResponse
+// @Failure 404 {object} ErrorResponse
+// @Failure 500 {object} ErrorResponse
+// @Security Bearer
+// @Router /api/v1/users/{id} [put]
+func (h *Handler) updateUser(w http.ResponseWriter, r *http.Request) {
+	// Получаем ID пользователя из URL
+	idStr := chi.URLParam(r, "id")
+	if idStr == "" {
+		http.Error(w, "User ID is required", http.StatusBadRequest)
+		return
+	}
+
+	id, err := strconv.ParseUint(idStr, 10, 32)
+	if err != nil {
+		http.Error(w, "Invalid user ID", http.StatusBadRequest)
+		return
+	}
+
+	var req user.UpdateUserDTO
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	updatedUser, err := h.userUsecase.Update(uint(id), &req)
+	if err != nil {
+		logger.Error("Failed to update user", err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(updatedUser)
+}
+
+// @Summary Delete user
+// @Description Delete user by ID
+// @Tags Users
+// @Param id path int true "User ID"
+// @Success 204 "No Content"
+// @Failure 400 {object} ErrorResponse
+// @Failure 401 {object} ErrorResponse
+// @Failure 404 {object} ErrorResponse
+// @Failure 500 {object} ErrorResponse
+// @Security Bearer
+// @Router /api/v1/users/{id} [delete]
+func (h *Handler) deleteUser(w http.ResponseWriter, r *http.Request) {
+	// Get user ID from URL parameter
+	idStr := chi.URLParam(r, "id")
+	if idStr == "" {
+		http.Error(w, "User ID is required", http.StatusBadRequest)
+		return
+	}
+
+	id, err := strconv.ParseUint(idStr, 10, 32)
+	if err != nil {
+		logger.Error("Invalid user ID for deletion", err)
+		http.Error(w, "Invalid user ID", http.StatusBadRequest)
+		return
+	}
+
+	// Call the usecase to delete the user
+	if err := h.userUsecase.Delete(uint(id)); err != nil {
+		logger.Error("Failed to delete user", err)
+		if errors.Is(err, usecase.ErrUserNotFound) {
+			http.Error(w, "User not found", http.StatusNotFound)
+		} else {
+			http.Error(w, "Failed to delete user", http.StatusInternalServerError)
+		}
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
+}
+
+// @Summary Update book state
+// @Description Update the state of an existing book
+// @Tags Books
+// @Accept json
+// @Produce json
+// @Param id path int true "Book ID"
+// @Param state body book.UpdateBookStateDTO true "New state data"
+// @Success 200 {object} book.Book
+// @Failure 400 {object} ErrorResponse
+// @Failure 401 {object} ErrorResponse
+// @Failure 404 {object} ErrorResponse
+// @Failure 500 {object} ErrorResponse
+// @Security Bearer
+// @Router /api/v1/books/{id}/state [patch]
+func (h *Handler) updateBookState(w http.ResponseWriter, r *http.Request) {
+	id, err := strconv.ParseUint(chi.URLParam(r, "id"), 10, 32)
+	if err != nil {
+		logger.Error("Invalid book ID", err)
+		http.Error(w, "Invalid book ID", http.StatusBadRequest)
+		return
+	}
+
+	var dto book.UpdateBookStateDTO
+	if err := json.NewDecoder(r.Body).Decode(&dto); err != nil {
+		logger.Error("Failed to decode request body", err)
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	if err := h.validate.Struct(dto); err != nil {
+		logger.Error("Validation failed", err)
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	book, err := h.bookUsecase.UpdateBookState(uint(id), uint(dto.StateID))
+	if err != nil {
+		logger.Error("Failed to update book state", err)
+		http.Error(w, "Failed to update book state", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(book)
+}
+
+// @Summary Register new user
+// @Description Register a new user with the provided credentials
+// @Tags Auth
+// @Accept json
+// @Produce json
+// @Param user body user.CreateUserDTO true "User registration data"
+// @Success 201 {object} user.User
+// @Failure 400 {object} ErrorResponse
+// @Failure 409 {object} ErrorResponse
+// @Failure 500 {object} ErrorResponse
+// @Router /api/v1/auth/register [post]
+func (h *Handler) register(w http.ResponseWriter, r *http.Request) {
+	var dto user.CreateUserDTO
+	if err := json.NewDecoder(r.Body).Decode(&dto); err != nil {
+		logger.Error("Failed to decode request body", err)
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	// Validate the DTO
+	if err := h.validate.Struct(dto); err != nil {
+		logger.Error("Validation failed", err)
+		http.Error(w, "Validation failed: "+err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	// Register new user
+	newUser, err := h.userUsecase.Register(&dto)
+	if err != nil {
+		logger.Error("Failed to register user", err)
+		if errors.Is(err, usecase.ErrUserAlreadyExists) {
+			http.Error(w, "User already exists", http.StatusConflict)
+		} else {
+			http.Error(w, "Failed to register user", http.StatusInternalServerError)
+		}
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusCreated)
+	json.NewEncoder(w).Encode(newUser)
+}
+
+// @Summary Login user
+// @Description Authenticate user and return JWT tokens
+// @Tags Auth
+// @Accept json
+// @Produce json
+// @Param credentials body user.LoginDTO true "User login credentials"
+// @Success 200 {object} jwt.TokenPair
+// @Failure 400 {object} ErrorResponse
+// @Failure 401 {object} ErrorResponse
+// @Failure 500 {object} ErrorResponse
+// @Router /api/v1/auth/login [post]
+func (h *Handler) login(w http.ResponseWriter, r *http.Request) {
+	var dto user.LoginDTO
+	if err := json.NewDecoder(r.Body).Decode(&dto); err != nil {
+		logger.Error("Failed to decode request body", err)
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	// Validate the DTO
+	if err := h.validate.Struct(dto); err != nil {
+		logger.Error("Validation failed", err)
+		http.Error(w, "Validation failed: "+err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	// Authenticate user and get token response
+	tokenResponse, err := h.userUsecase.Login(&dto)
+	if err != nil {
+		logger.Error("Authentication failed", err)
+		http.Error(w, "Invalid credentials", http.StatusUnauthorized)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(tokenResponse)
+}
+
+// @Summary Get all tags
+// @Description Get list of all tags
+// @Tags Tags
+// @Produce json
+// @Success 200 {array} tag.Tag
+// @Failure 500 {object} ErrorResponse
+// @Router /api/v1/tags [get]
+func (h *Handler) getAllTags(w http.ResponseWriter, r *http.Request) {
+	tags, err := h.tagUsecase.GetAllTags()
+	if err != nil {
+		logger.Error("Failed to get tags", err)
+		http.Error(w, "Failed to get tags", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(tags)
+}
+
+// @Summary Delete tag
+// @Description Delete tag by ID
+// @Tags Tags
+// @Param id path int true "Tag ID"
+// @Success 204 "No Content"
+// @Failure 400 {object} ErrorResponse
+// @Failure 401 {object} ErrorResponse
+// @Failure 404 {object} ErrorResponse
+// @Failure 500 {object} ErrorResponse
+// @Security Bearer
+// @Router /api/v1/tags/{id} [delete]
+func (h *Handler) deleteTag(w http.ResponseWriter, r *http.Request) {
+	id, err := strconv.ParseUint(chi.URLParam(r, "id"), 10, 32)
+	if err != nil {
+		http.Error(w, "Invalid tag ID", http.StatusBadRequest)
+		return
+	}
+
+	if err := h.tagUsecase.DeleteTag(uint(id)); err != nil {
+		http.Error(w, "Failed to delete tag", http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
 }

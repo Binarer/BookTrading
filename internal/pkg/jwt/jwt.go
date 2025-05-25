@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"github.com/go-chi/jwtauth/v5"
-	"github.com/golang-jwt/jwt/v5"
 )
 
 var (
@@ -22,12 +21,6 @@ var (
 	ErrExpiredRefresh = errors.New("refresh token has expired")
 )
 
-type Claims struct {
-	UserID uint   `json:"user_id"`
-	Login  string `json:"login"`
-	jwt.RegisteredClaims
-}
-
 type TokenPair struct {
 	AccessToken  string `json:"access_token"`
 	RefreshToken string `json:"refresh_token"`
@@ -35,34 +28,20 @@ type TokenPair struct {
 }
 
 type Service struct {
-	secretKey     []byte
-	refreshSecret []byte
-	issuer        string
-	accessTTL     time.Duration
-	refreshTTL    time.Duration
-	refreshRepo   token.Repository
-	userRepo      interface {
+	tokenAuth   *jwtauth.JWTAuth
+	refreshRepo token.Repository
+	userRepo    interface {
 		GetByID(id uint) (*user.User, error)
 	}
 }
 
-func NewService(secretKey string, refreshSecret string, issuer string, refreshRepo token.Repository, userRepo interface {
+func NewService(secretKey string, refreshRepo token.Repository, userRepo interface {
 	GetByID(id uint) (*user.User, error)
 }) *Service {
-	if len(secretKey) < 32 {
-		logger.Error("Secret key is too short", fmt.Errorf("minimum length is 32 bytes, got %d", len(secretKey)))
-	}
-	if len(refreshSecret) < 32 {
-		logger.Error("Refresh secret key is too short", fmt.Errorf("minimum length is 32 bytes, got %d", len(refreshSecret)))
-	}
 	return &Service{
-		secretKey:     []byte(secretKey),
-		refreshSecret: []byte(refreshSecret),
-		issuer:        issuer,
-		accessTTL:     24 * time.Hour,
-		refreshTTL:    30 * 24 * time.Hour, // 30 дней
-		refreshRepo:   refreshRepo,
-		userRepo:      userRepo,
+		tokenAuth:   jwtauth.New("HS256", []byte(secretKey), nil),
+		refreshRepo: refreshRepo,
+		userRepo:    userRepo,
 	}
 }
 
@@ -88,93 +67,62 @@ func (s *Service) GenerateTokenPair(user *user.User) (*TokenPair, error) {
 		return nil, fmt.Errorf("invalid user login")
 	}
 
-	now := time.Now()
-	expiresAt := now.Add(s.accessTTL)
-
-	// Генерируем access token
-	claims := Claims{
-		UserID: user.ID,
-		Login:  user.Login,
-		RegisteredClaims: jwt.RegisteredClaims{
-			ExpiresAt: jwt.NewNumericDate(expiresAt),
-			IssuedAt:  jwt.NewNumericDate(now),
-			NotBefore: jwt.NewNumericDate(now),
-			Issuer:    s.issuer,
-			Subject:   fmt.Sprintf("%d", user.ID),
-		},
+	// Generate access token
+	_, accessToken, err := s.tokenAuth.Encode(map[string]interface{}{
+		"user_id": user.ID,
+		"login":   user.Login,
+		"exp":     time.Now().Add(15 * time.Minute).Unix(),
+	})
+	if err != nil {
+		return nil, err
 	}
 
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	accessToken, err := token.SignedString(s.secretKey)
+	// Generate refresh token
+	_, refreshToken, err := s.tokenAuth.Encode(map[string]interface{}{
+		"user_id": user.ID,
+		"exp":     time.Now().Add(24 * time.Hour * 7).Unix(), // 7 days
+	})
 	if err != nil {
-		logger.Error("Failed to sign access token", err)
-		return nil, fmt.Errorf("failed to generate access token: %w", err)
-	}
-
-	// Генерируем refresh token
-	refreshToken, err := generateRefreshToken()
-	if err != nil {
-		logger.Error("Failed to generate refresh token", err)
-		return nil, fmt.Errorf("failed to generate refresh token: %w", err)
+		return nil, err
 	}
 
 	// Сохраняем refresh token в базе данных
-	if err := s.refreshRepo.Save(user.ID, refreshToken, now.Add(s.refreshTTL)); err != nil {
+	if err := s.refreshRepo.Save(user.ID, refreshToken, time.Now().Add(24*time.Hour*7)); err != nil {
 		return nil, fmt.Errorf("failed to save refresh token: %w", err)
 	}
 
 	return &TokenPair{
 		AccessToken:  accessToken,
 		RefreshToken: refreshToken,
-		ExpiresIn:    expiresAt.Unix(),
+		ExpiresIn:    time.Now().Add(24 * time.Hour * 7).Unix(),
 	}, nil
 }
 
-func (s *Service) ValidateToken(tokenString string) (*Claims, error) {
+func (s *Service) ValidateToken(tokenString string) (map[string]interface{}, error) {
 	if tokenString == "" {
 		return nil, ErrInvalidToken
 	}
 
-	token, err := jwt.ParseWithClaims(tokenString, &Claims{}, func(token *jwt.Token) (interface{}, error) {
-		// Проверяем метод подписи
-		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
-			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
-		}
-		return s.secretKey, nil
-	})
-
+	token, err := s.tokenAuth.Decode(tokenString)
 	if err != nil {
-		if errors.Is(err, jwt.ErrTokenExpired) {
-			return nil, ErrExpiredToken
-		}
-		logger.Error("Token validation failed", err)
 		return nil, ErrInvalidToken
 	}
 
-	if !token.Valid {
-		return nil, ErrInvalidToken
-	}
-
-	claims, ok := token.Claims.(*Claims)
+	// Проверяем обязательные поля
+	userID, ok := token.Get("user_id")
 	if !ok {
 		return nil, ErrInvalidClaims
 	}
 
-	// Проверяем обязательные поля
-	if claims.UserID == 0 {
+	login, ok := token.Get("login")
+	if !ok {
 		return nil, ErrInvalidClaims
 	}
 
-	if claims.Login == "" {
-		return nil, ErrInvalidClaims
-	}
-
-	// Проверяем issuer
-	if claims.Issuer != s.issuer {
-		return nil, ErrInvalidToken
-	}
-
-	return claims, nil
+	return map[string]interface{}{
+		"user_id": userID,
+		"login":   login,
+	}, nil
 }
 
 func (s *Service) RefreshTokenPair(refreshToken string) (*TokenPair, error) {
@@ -211,33 +159,23 @@ func (s *Service) CleanupExpiredTokens() error {
 	return s.refreshRepo.DeleteExpired()
 }
 
-func (s *Service) GetJWTAuth() *jwtauth.JWTAuth {
-	return jwtauth.New("HS256", s.secretKey, nil)
+func (s *Service) GetTokenAuth() *jwtauth.JWTAuth {
+	return s.tokenAuth
 }
 
 // ValidateRefreshToken проверяет refresh token и возвращает пользователя
-func (s *Service) ValidateRefreshToken(token string) (*user.User, error) {
-	// Проверяем подпись токена
-	claims := &jwt.MapClaims{}
-	parsedToken, err := jwt.ParseWithClaims(token, claims, func(token *jwt.Token) (interface{}, error) {
-		return []byte(s.refreshSecret), nil
-	})
-
-	if err != nil || !parsedToken.Valid {
-		return nil, fmt.Errorf("invalid refresh token: %w", err)
-	}
-
-	// Получаем ID пользователя из токена
-	userID, ok := (*claims)["user_id"].(float64)
-	if !ok {
-		return nil, fmt.Errorf("invalid token claims")
-	}
-
-	// Получаем пользователя из базы данных
-	user, err := s.userRepo.GetByID(uint(userID))
+func (s *Service) ValidateRefreshToken(tokenString string) (*user.User, error) {
+	token, err := s.tokenAuth.Decode(tokenString)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get user: %w", err)
+		return nil, err
 	}
 
-	return user, nil
+	userID, ok := token.Get("user_id")
+	if !ok {
+		return nil, ErrInvalidToken
+	}
+
+	return &user.User{
+		ID: uint(userID.(float64)),
+	}, nil
 }

@@ -1,13 +1,14 @@
 package http
 
 import (
-	"booktrading/internal/pkg/jwt"
 	"booktrading/internal/pkg/logger"
 	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
 	"strings"
+
+	"github.com/go-chi/jwtauth/v5"
 )
 
 type contextKey string
@@ -106,80 +107,32 @@ func (h *Handler) PhotoValidationMiddleware(next http.Handler) http.Handler {
 	})
 }
 
-func (h *Handler) AuthMiddleware(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// Проверяем заголовок Authorization
-		authHeader := r.Header.Get("Authorization")
-		if authHeader == "" {
-			logger.Error("Authorization header is missing", nil)
-			http.Error(w, "Authorization header is required", http.StatusUnauthorized)
-			return
-		}
-
-		// Проверяем формат заголовка
-		parts := strings.Split(authHeader, " ")
-		if len(parts) != 2 || parts[0] != "Bearer" {
-			logger.Error("Invalid authorization header format", fmt.Errorf("expected 'Bearer <token>', got '%s'", authHeader))
-			http.Error(w, "Invalid authorization header format", http.StatusUnauthorized)
-			return
-		}
-
-		token := parts[1]
-		if token == "" {
-			logger.Error("Empty token", nil)
-			http.Error(w, "Token is required", http.StatusUnauthorized)
-			return
-		}
-
-		// Валидируем токен
-		claims, err := h.jwtSvc.ValidateToken(token)
-		if err != nil {
-			switch err {
-			case jwt.ErrExpiredToken:
-				logger.Error("Token has expired", err)
-				http.Error(w, "Token has expired", http.StatusUnauthorized)
-			case jwt.ErrInvalidToken:
-				logger.Error("Invalid token", err)
-				http.Error(w, "Invalid token", http.StatusUnauthorized)
-			default:
-				logger.Error("Token validation failed", err)
-				http.Error(w, "Authentication failed", http.StatusUnauthorized)
-			}
-			return
-		}
-
-		// Проверяем наличие обязательных полей в claims
-		if claims.UserID == 0 {
-			logger.Error("Invalid token claims", fmt.Errorf("user ID is missing or zero"))
-			http.Error(w, "Invalid token claims", http.StatusUnauthorized)
-			return
-		}
-
-		if claims.Login == "" {
-			logger.Error("Invalid token claims", fmt.Errorf("login is missing or empty"))
-			http.Error(w, "Invalid token claims", http.StatusUnauthorized)
-			return
-		}
-
-		// Добавляем данные пользователя в контекст
-		ctx := context.WithValue(r.Context(), UserIDKey, claims.UserID)
-		ctx = context.WithValue(ctx, LoginKey, claims.Login)
-
-		// Добавляем заголовки безопасности
-		w.Header().Set("X-Content-Type-Options", "nosniff")
-		w.Header().Set("X-Frame-Options", "DENY")
-		w.Header().Set("X-XSS-Protection", "1; mode=block")
-
-		next.ServeHTTP(w, r.WithContext(ctx))
-	})
-}
-
+// GetUserIDFromContext извлекает ID пользователя из контекста запроса
 func GetUserIDFromContext(ctx context.Context) (uint, bool) {
-	userID, ok := ctx.Value(UserIDKey).(uint)
-	return userID, ok
+	_, claims, err := jwtauth.FromContext(ctx)
+	if err != nil || claims == nil {
+		return 0, false
+	}
+
+	userID, idOK := claims["user_id"].(float64)
+	if !idOK {
+		return 0, false
+	}
+
+	return uint(userID), true
 }
 
+// GetLoginFromContext извлекает логин пользователя из контекста запроса
 func GetLoginFromContext(ctx context.Context) (string, bool) {
-	login, ok := ctx.Value(LoginKey).(string)
-	return login, ok
+	_, claims, err := jwtauth.FromContext(ctx)
+	if err != nil || claims == nil {
+		return "", false
+	}
+
+	login, loginOK := claims["login"].(string)
+	if !loginOK {
+		return "", false
+	}
+
+	return login, true
 }

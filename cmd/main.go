@@ -15,6 +15,8 @@ import (
 	"time"
 
 	_ "booktrading/docs" // This is required for Swagger
+
+	"github.com/go-chi/jwtauth/v5"
 )
 
 // @title Book Trading API
@@ -53,10 +55,11 @@ func main() {
 
 	repo := repository.NewRepository(db)
 
+	// Создаем JWTAuth из go-chi/jwtauth
+	jwtAuth := jwtauth.New("HS256", []byte(cfg.JWT.SecretKey), nil)
+
 	jwtSvc := jwt.NewService(
 		cfg.JWT.SecretKey,
-		cfg.JWT.RefreshSecret,
-		cfg.JWT.Issuer,
 		repo.Token,
 		repo.User,
 	)
@@ -65,22 +68,22 @@ func main() {
 	cache := cache.NewCache()
 
 	// Инициализация usecase'ов
-	bookUsecase := usecase.NewBookUsecase(
+	bookUsecase := usecase.NewBookUseCase(
 		repo.Book.(*mysql.BookRepository),
 		repo.Tag.(*mysql.TagRepository),
 		repo.State.(*mysql.StateRepository),
 		cache,
 	)
 
-	tagUsecase := usecase.NewTagUsecase(
+	tagUsecase := usecase.NewTagUseCase(
 		repo.Tag.(*mysql.TagRepository),
 		repo.Book.(*mysql.BookRepository),
 		cache,
 	)
 
-	stateUsecase := usecase.NewStateUsecase(repo.State.(*mysql.StateRepository))
+	stateUsecase := usecase.NewStateUseCase(repo.State.(*mysql.StateRepository))
 
-	userUsecase := usecase.NewUserUsecase(repo.User, jwtSvc)
+	userUsecase := usecase.NewUserUseCase(repo.User, jwtSvc)
 
 	// Инициализация HTTP обработчика
 	handler := httpHandler.NewHandler(
@@ -89,10 +92,11 @@ func main() {
 		stateUsecase,
 		userUsecase,
 		jwtSvc,
+		jwtAuth,
 	)
 
 	// Инициализация роутера
-	router := httpHandler.NewRouter(handler, jwtSvc.GetJWTAuth())
+	router := httpHandler.NewRouter(handler, jwtAuth)
 
 	// Запуск сервера
 	addr := cfg.Server.Host + ":" + strconv.Itoa(cfg.Server.Port)

@@ -26,6 +26,7 @@ func InitDB(dsn string) (*gorm.DB, error) {
 	err = db.AutoMigrate(
 		&user.User{},
 		&book.Book{},
+		&book.BookPhoto{},
 		&tag.Tag{},
 		&state.State{},
 		&token.RefreshToken{},

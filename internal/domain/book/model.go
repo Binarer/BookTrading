@@ -17,21 +17,35 @@ const (
 	StateTraded    BookState = "traded"    // Книга обменена
 )
 
+// BookPhoto представляет фотографию книги
+type BookPhoto struct {
+	ID        uint      `json:"id" gorm:"primaryKey;autoIncrement;type:int unsigned"`
+	BookID    uint      `json:"book_id" gorm:"not null;index;type:int unsigned"`
+	PhotoURL  string    `json:"photo_url" gorm:"type:mediumtext;not null"`
+	IsMain    bool      `json:"is_main" gorm:"default:false"`
+	CreatedAt time.Time `json:"created_at" gorm:"autoCreateTime"`
+	UpdatedAt time.Time `json:"updated_at" gorm:"autoUpdateTime"`
+}
+
+// TableName указывает имя таблицы для модели BookPhoto
+func (BookPhoto) TableName() string {
+	return "book_photos"
+}
+
 // Book представляет собой книгу в системе
 type Book struct {
-	ID          uint         `json:"id" gorm:"primaryKey"`
-	Title       string       `json:"title" gorm:"type:varchar(255);not null"`
-	Author      string       `json:"author" gorm:"type:varchar(255);not null"`
-	Description string       `json:"description" gorm:"type:text"`
-	Photos      []string     `json:"photos" gorm:"-"`        // Игнорируем в GORM
-	PhotosJSON  string       `json:"-" gorm:"column:photos"` // Храним как JSON
-	UserID      uint         `json:"user_id" gorm:"not null"`
+	ID          uint         `json:"id" gorm:"primaryKey;autoIncrement;type:int unsigned"`
+	Title       string       `json:"title" gorm:"type:varchar(255);not null;index"`
+	Author      string       `json:"author" gorm:"type:varchar(255);not null;index"`
+	Description string       `json:"description" gorm:"type:mediumtext"`
+	Photos      []BookPhoto  `json:"photos" gorm:"foreignKey:BookID"`
+	UserID      uint         `json:"user_id" gorm:"not null;type:int unsigned;index"`
 	User        *user.User   `json:"user" gorm:"foreignKey:UserID"`
-	StateID     uint         `json:"state_id" gorm:"not null"`
+	StateID     uint         `json:"state_id" gorm:"not null;type:int unsigned;index"`
 	State       *state.State `json:"state" gorm:"foreignKey:StateID"`
 	Tags        []*tag.Tag   `json:"tags" gorm:"many2many:book_tags"`
-	CreatedAt   time.Time    `json:"created_at"`
-	UpdatedAt   time.Time    `json:"updated_at"`
+	CreatedAt   time.Time    `json:"created_at" gorm:"autoCreateTime"`
+	UpdatedAt   time.Time    `json:"updated_at" gorm:"autoUpdateTime"`
 }
 
 // TableName указывает имя таблицы для модели Book
@@ -70,14 +84,26 @@ type UpdateBookStateDTO struct {
 
 // ToBook преобразует DTO в модель Book
 func (dto *CreateBookDTO) ToBook() *Book {
-	return &Book{
+	book := &Book{
 		Title:       dto.Title,
 		Author:      dto.Author,
 		Description: dto.Description,
-		Photos:      dto.Photos,
 		UserID:      dto.UserID,
 		StateID:     dto.StateID,
 	}
+
+	// Создаем фотографии
+	if len(dto.Photos) > 0 {
+		book.Photos = make([]BookPhoto, len(dto.Photos))
+		for i, photoURL := range dto.Photos {
+			book.Photos[i] = BookPhoto{
+				PhotoURL: photoURL,
+				IsMain:   i == 0, // Первая фотография - главная
+			}
+		}
+	}
+
+	return book
 }
 
 // UpdateFromDTO обновляет поля книги из DTO
@@ -92,7 +118,13 @@ func (b *Book) UpdateFromDTO(dto *UpdateBookDTO) {
 		b.Description = dto.Description
 	}
 	if len(dto.Photos) > 0 {
-		b.Photos = dto.Photos
+		b.Photos = make([]BookPhoto, len(dto.Photos))
+		for i, photoURL := range dto.Photos {
+			b.Photos[i] = BookPhoto{
+				PhotoURL: photoURL,
+				IsMain:   i == 0, // Первая фотография - главная
+			}
+		}
 	}
 	if dto.StateID != 0 {
 		b.StateID = dto.StateID

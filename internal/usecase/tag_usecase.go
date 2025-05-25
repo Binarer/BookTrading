@@ -1,18 +1,18 @@
 package usecase
 
 import (
+	"booktrading/internal/domain/repository"
 	"booktrading/internal/domain/tag"
 	"booktrading/internal/pkg/cache"
 	"booktrading/internal/pkg/logger"
-	"booktrading/internal/repository"
 	"database/sql"
 	_ "encoding/json"
 	"fmt"
 	"time"
 )
 
-// TagUsecase определяет интерфейс для работы с тегами
-type TagUsecase interface {
+// TagUseCase определяет интерфейс для работы с тегами
+type TagUseCase interface {
 	CreateTag(tag *tag.Tag) error
 	GetTagByID(id uint) (*tag.Tag, error)
 	GetTagByName(name string) (*tag.Tag, error)
@@ -22,16 +22,16 @@ type TagUsecase interface {
 	DeleteTag(id uint) error
 }
 
-// tagUsecase реализует интерфейс TagUsecase
-type tagUsecase struct {
+// tagUseCase реализует интерфейс TagUseCase
+type tagUseCase struct {
 	tagRepo  repository.TagRepository
 	bookRepo repository.BookRepository
 	cache    *cache.Cache
 }
 
-// NewTagUsecase создает новый экземпляр tagUsecase
-func NewTagUsecase(tagRepo repository.TagRepository, bookRepo repository.BookRepository, cache *cache.Cache) TagUsecase {
-	return &tagUsecase{
+// NewTagUseCase создает новый экземпляр TagUseCase
+func NewTagUseCase(tagRepo repository.TagRepository, bookRepo repository.BookRepository, cache *cache.Cache) TagUseCase {
+	return &tagUseCase{
 		tagRepo:  tagRepo,
 		bookRepo: bookRepo,
 		cache:    cache,
@@ -39,23 +39,23 @@ func NewTagUsecase(tagRepo repository.TagRepository, bookRepo repository.BookRep
 }
 
 // CreateTag создает новый тег
-func (u *tagUsecase) CreateTag(t *tag.Tag) error {
+func (u *tagUseCase) CreateTag(t *tag.Tag) error {
 	// Создаем тег
 	if err := u.tagRepo.Create(t); err != nil {
 		return fmt.Errorf("failed to create tag: %w", err)
 	}
 
 	// Инвалидируем кеш
+	u.cache.DeletePattern("tags:")
 	u.cache.Delete("tags:all")
-	u.cache.Delete("tags:popular")
 
 	return nil
 }
 
 // GetTagByID получает тег по ID
-func (u *tagUsecase) GetTagByID(id uint) (*tag.Tag, error) {
+func (u *tagUseCase) GetTagByID(id uint) (*tag.Tag, error) {
 	// Попытка получить тег из кеша
-	cacheKey := fmt.Sprintf("tag:%d", id)
+	cacheKey := fmt.Sprintf("tags:id:%d", id)
 	if cached, found := u.cache.Get(cacheKey); found {
 		if t, ok := cached.(*tag.Tag); ok {
 			return t, nil
@@ -76,9 +76,9 @@ func (u *tagUsecase) GetTagByID(id uint) (*tag.Tag, error) {
 }
 
 // GetTagByName получает тег по имени
-func (u *tagUsecase) GetTagByName(name string) (*tag.Tag, error) {
+func (u *tagUseCase) GetTagByName(name string) (*tag.Tag, error) {
 	// Попытка получить тег из кеша
-	cacheKey := fmt.Sprintf("tag:name:%s", name)
+	cacheKey := fmt.Sprintf("tags:name:%s", name)
 	if cached, found := u.cache.Get(cacheKey); found {
 		if t, ok := cached.(*tag.Tag); ok {
 			return t, nil
@@ -99,9 +99,9 @@ func (u *tagUsecase) GetTagByName(name string) (*tag.Tag, error) {
 }
 
 // GetAllTags получает список всех тегов
-func (u *tagUsecase) GetAllTags() ([]*tag.Tag, error) {
+func (u *tagUseCase) GetAllTags() ([]*tag.Tag, error) {
 	// Попытка получить теги из кеша
-	cacheKey := "all_tags"
+	cacheKey := "tags:all"
 	if cached, found := u.cache.Get(cacheKey); found {
 		if tags, ok := cached.([]*tag.Tag); ok {
 			return tags, nil
@@ -122,9 +122,9 @@ func (u *tagUsecase) GetAllTags() ([]*tag.Tag, error) {
 }
 
 // GetPopularTags получает список популярных тегов
-func (u *tagUsecase) GetPopularTags(limit int) ([]*tag.TagWithCount, error) {
+func (u *tagUseCase) GetPopularTags(limit int) ([]*tag.TagWithCount, error) {
 	// Попытка получить теги из кеша
-	cacheKey := fmt.Sprintf("popular_tags:%d", limit)
+	cacheKey := fmt.Sprintf("tags:popular:%d", limit)
 	if cached, found := u.cache.Get(cacheKey); found {
 		if tags, ok := cached.([]*tag.TagWithCount); ok {
 			return tags, nil
@@ -145,7 +145,7 @@ func (u *tagUsecase) GetPopularTags(limit int) ([]*tag.TagWithCount, error) {
 }
 
 // UpdateTag обновляет существующий тег
-func (u *tagUsecase) UpdateTag(id uint, dto *tag.UpdateTagDTO) (*tag.Tag, error) {
+func (u *tagUseCase) UpdateTag(id uint, dto *tag.UpdateTagDTO) (*tag.Tag, error) {
 	// Получаем существующий тег
 	existingTag, err := u.GetTagByID(id)
 	if err != nil {
@@ -170,14 +170,14 @@ func (u *tagUsecase) UpdateTag(id uint, dto *tag.UpdateTagDTO) (*tag.Tag, error)
 	}
 
 	// Инвалидация кеша
-	u.cache.Delete(fmt.Sprintf("tag:%d", id))
-	u.cache.Delete(fmt.Sprintf("tag:name:%s", existingTag.Name))
+	u.cache.DeletePattern("tags:")
+	u.cache.Delete("tags:all")
 
 	return existingTag, nil
 }
 
 // DeleteTag удаляет тег по ID
-func (u *tagUsecase) DeleteTag(id uint) error {
+func (u *tagUseCase) DeleteTag(id uint) error {
 	// Проверяем, используется ли тег в книгах
 	books, err := u.bookRepo.GetByTags([]uint{id})
 	if err != nil {
@@ -193,8 +193,8 @@ func (u *tagUsecase) DeleteTag(id uint) error {
 	}
 
 	// Инвалидация кеша
-	u.cache.Delete("tags")
-	u.cache.Delete(fmt.Sprintf("tag:%d", id))
+	u.cache.DeletePattern("tags:")
+	u.cache.Delete("tags:all")
 
 	return nil
 }

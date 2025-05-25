@@ -11,9 +11,8 @@ definitions:
       id:
         type: integer
       photos:
-        description: Игнорируем в GORM
         items:
-          type: string
+          $ref: '#/definitions/book.BookPhoto'
         type: array
       state:
         $ref: '#/definitions/state.State'
@@ -31,6 +30,21 @@ definitions:
         $ref: '#/definitions/user.User'
       user_id:
         type: integer
+    type: object
+  book.BookPhoto:
+    properties:
+      book_id:
+        type: integer
+      created_at:
+        type: string
+      id:
+        type: integer
+      is_main:
+        type: boolean
+      photo_url:
+        type: string
+      updated_at:
+        type: string
     type: object
   book.CreateBookDTO:
     properties:
@@ -233,13 +247,6 @@ definitions:
     - login
     - password
     type: object
-  user.TokenResponse:
-    properties:
-      refresh_token:
-        type: string
-      token:
-        type: string
-    type: object
   user.UpdateUserDTO:
     properties:
       avatar:
@@ -285,6 +292,40 @@ info:
   title: Book Trading API
   version: "1.0"
 paths:
+  /api/v1/auth/login:
+    post:
+      consumes:
+      - application/json
+      description: Authenticate user and return JWT tokens
+      parameters:
+      - description: User login credentials
+        in: body
+        name: credentials
+        required: true
+        schema:
+          $ref: '#/definitions/user.LoginDTO'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/jwt.TokenPair'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/http.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/http.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/http.ErrorResponse'
+      summary: Login user
+      tags:
+      - Auth
   /api/v1/auth/refresh:
     post:
       consumes:
@@ -309,9 +350,43 @@ paths:
       summary: Refresh access token
       tags:
       - Auth
+  /api/v1/auth/register:
+    post:
+      consumes:
+      - application/json
+      description: Register a new user with the provided credentials
+      parameters:
+      - description: User registration data
+        in: body
+        name: user
+        required: true
+        schema:
+          $ref: '#/definitions/user.CreateUserDTO'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/user.User'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/http.ErrorResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/http.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/http.ErrorResponse'
+      summary: Register new user
+      tags:
+      - Auth
   /api/v1/books:
     get:
-      description: Get a list of all books with pagination
+      description: Get paginated list of all books
       parameters:
       - description: 'Page number (default: 1)'
         in: query
@@ -329,15 +404,19 @@ paths:
           schema:
             additionalProperties: true
             type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/http.ErrorResponse'
       summary: Get all books
       tags:
-      - books
+      - Books
     post:
       consumes:
       - application/json
-      description: Create a new book with the given details
+      description: Create a new book with the provided details
       parameters:
-      - description: Book details
+      - description: Book data
         in: body
         name: book
         required: true
@@ -364,15 +443,12 @@ paths:
             $ref: '#/definitions/http.ErrorResponse'
       security:
       - Bearer: []
-      summary: Create a new book
+      summary: Create new book
       tags:
-      - books
-      x-tryItOutEnabled: true
-      x-validateRequest: true
-      x-validateResponse: true
+      - Books
   /api/v1/books/{id}:
     delete:
-      description: Delete a book by ID
+      description: Delete book by ID
       parameters:
       - description: Book ID
         in: path
@@ -402,9 +478,9 @@ paths:
       - Bearer: []
       summary: Delete book
       tags:
-      - books
+      - Books
     get:
-      description: Get book information by ID
+      description: Get book information by its ID
       parameters:
       - description: Book ID
         in: path
@@ -418,20 +494,28 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/book.Book'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/http.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/http.ErrorResponse'
       summary: Get book by ID
       tags:
-      - books
+      - Books
     put:
       consumes:
       - application/json
-      description: Update book details
+      description: Update existing book information
       parameters:
       - description: Book ID
         in: path
         name: id
         required: true
         type: integer
-      - description: Book details
+      - description: Updated book data
         in: body
         name: book
         required: true
@@ -462,24 +546,21 @@ paths:
             $ref: '#/definitions/http.ErrorResponse'
       security:
       - Bearer: []
-      summary: Update a book
+      summary: Update book
       tags:
-      - books
-      x-tryItOutEnabled: true
-      x-validateRequest: true
-      x-validateResponse: true
+      - Books
   /api/v1/books/{id}/state:
     patch:
       consumes:
       - application/json
-      description: Update the state of a book
+      description: Update the state of an existing book
       parameters:
       - description: Book ID
         in: path
         name: id
         required: true
         type: integer
-      - description: New state
+      - description: New state data
         in: body
         name: state
         required: true
@@ -512,19 +593,19 @@ paths:
       - Bearer: []
       summary: Update book state
       tags:
-      - books
+      - Books
   /api/v1/books/{id}/tags:
     post:
       consumes:
       - application/json
-      description: Add tags to an existing book
+      description: Add new tags to an existing book
       parameters:
       - description: Book ID
         in: path
         name: id
         required: true
         type: integer
-      - description: Tag IDs
+      - description: Tag IDs to add
         in: body
         name: tagIds
         required: true
@@ -559,10 +640,10 @@ paths:
       - Bearer: []
       summary: Add tags to book
       tags:
-      - books
+      - Books
   /api/v1/books/search:
     get:
-      description: Search books by tag IDs
+      description: Search books by provided tag IDs
       parameters:
       - collectionFormat: csv
         description: Tag IDs
@@ -581,9 +662,17 @@ paths:
             items:
               $ref: '#/definitions/book.Book'
             type: array
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/http.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/http.ErrorResponse'
       summary: Search books by tags
       tags:
-      - books
+      - Books
   /api/v1/states:
     get:
       description: Get list of all book states
@@ -596,15 +685,19 @@ paths:
             items:
               $ref: '#/definitions/state.State'
             type: array
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/http.ErrorResponse'
       summary: Get all states
       tags:
-      - states
+      - States
     post:
       consumes:
       - application/json
       description: Create a new book state
       parameters:
-      - description: State object
+      - description: State data
         in: body
         name: state
         required: true
@@ -631,12 +724,12 @@ paths:
             $ref: '#/definitions/http.ErrorResponse'
       security:
       - Bearer: []
-      summary: Create a new state
+      summary: Create new state
       tags:
-      - states
+      - States
   /api/v1/states/{id}:
     delete:
-      description: Delete a book state
+      description: Delete book state by ID
       parameters:
       - description: State ID
         in: path
@@ -666,9 +759,9 @@ paths:
       - Bearer: []
       summary: Delete state
       tags:
-      - states
+      - States
     get:
-      description: Get a book state by ID
+      description: Get book state information by its ID
       parameters:
       - description: State ID
         in: path
@@ -682,20 +775,28 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/state.State'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/http.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/http.ErrorResponse'
       summary: Get state by ID
       tags:
-      - states
+      - States
     put:
       consumes:
       - application/json
-      description: Update a book state
+      description: Update existing book state information
       parameters:
       - description: State ID
         in: path
         name: id
         required: true
         type: integer
-      - description: State object
+      - description: Updated state data
         in: body
         name: state
         required: true
@@ -728,9 +829,10 @@ paths:
       - Bearer: []
       summary: Update state
       tags:
-      - states
+      - States
   /api/v1/tags:
     get:
+      description: Get list of all tags
       produces:
       - application/json
       responses:
@@ -740,14 +842,19 @@ paths:
             items:
               $ref: '#/definitions/tag.Tag'
             type: array
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/http.ErrorResponse'
       summary: Get all tags
       tags:
       - Tags
     post:
       consumes:
       - application/json
+      description: Create a new tag with the provided name
       parameters:
-      - description: Tag details
+      - description: Tag data
         in: body
         name: tag
         required: true
@@ -774,14 +881,12 @@ paths:
             $ref: '#/definitions/http.ErrorResponse'
       security:
       - Bearer: []
-      summary: Create tag
+      summary: Create new tag
       tags:
       - Tags
-      x-tryItOutEnabled: true
-      x-validateRequest: true
-      x-validateResponse: true
   /api/v1/tags/{id}:
     delete:
+      description: Delete tag by ID
       parameters:
       - description: Tag ID
         in: path
@@ -813,6 +918,7 @@ paths:
       tags:
       - Tags
     get:
+      description: Get tag information by its ID
       parameters:
       - description: Tag ID
         in: path
@@ -834,19 +940,20 @@ paths:
           description: Not Found
           schema:
             $ref: '#/definitions/http.ErrorResponse'
-      summary: Get tag
+      summary: Get tag by ID
       tags:
       - Tags
     put:
       consumes:
       - application/json
+      description: Update existing tag information
       parameters:
       - description: Tag ID
         in: path
         name: id
         required: true
         type: integer
-      - description: Tag details
+      - description: Updated tag data
         in: body
         name: tag
         required: true
@@ -882,8 +989,9 @@ paths:
       - Tags
   /api/v1/tags/popular:
     get:
+      description: Get list of popular tags with optional limit
       parameters:
-      - description: Number of tags
+      - description: 'Number of tags to return (default: 10)'
         in: query
         name: limit
         type: integer
@@ -896,32 +1004,46 @@ paths:
             items:
               $ref: '#/definitions/tag.Tag'
             type: array
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/http.ErrorResponse'
       summary: Get popular tags
       tags:
       - Tags
   /api/v1/users:
     get:
-      description: Get a paginated list of users
+      description: Get paginated list of all users
       parameters:
       - description: 'Page number (default: 1)'
         in: query
         name: page
         type: integer
-      - description: 'Page size (default: 10)'
+      - description: 'Items per page (default: 10, max: 100)'
         in: query
-        name: page_size
+        name: pageSize
         type: integer
       produces:
       - application/json
       responses:
         "200":
-          description: Users and total count
+          description: Returns users and pagination info
           schema:
             additionalProperties: true
             type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/http.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/http.ErrorResponse'
+      security:
+      - Bearer: []
       summary: Get all users
       tags:
-      - users
+      - Users
   /api/v1/users/{id}:
     delete:
       description: Delete user by ID
@@ -934,11 +1056,27 @@ paths:
       responses:
         "204":
           description: No Content
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/http.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/http.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/http.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/http.ErrorResponse'
       security:
-      - BearerAuth: []
+      - Bearer: []
       summary: Delete user
       tags:
-      - users
+      - Users
     get:
       description: Get user information by ID
       parameters:
@@ -954,20 +1092,34 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/user.User'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/http.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/http.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/http.ErrorResponse'
+      security:
+      - Bearer: []
       summary: Get user by ID
       tags:
-      - users
+      - Users
     put:
       consumes:
       - application/json
-      description: Update user information
+      description: Update existing user information
       parameters:
       - description: User ID
         in: path
         name: id
         required: true
         type: integer
-      - description: User update data
+      - description: Updated user data
         in: body
         name: user
         required: true
@@ -980,11 +1132,27 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/user.User'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/http.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/http.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/http.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/http.ErrorResponse'
       security:
-      - BearerAuth: []
+      - Bearer: []
       summary: Update user
       tags:
-      - users
+      - Users
   /api/v1/users/{id}/books:
     get:
       description: Get paginated list of user's books
@@ -1010,55 +1178,27 @@ paths:
           schema:
             additionalProperties: true
             type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/http.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/http.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/http.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/http.ErrorResponse'
       security:
       - Bearer: []
       summary: Get user books
       tags:
-      - books
-  /api/v1/users/login:
-    post:
-      consumes:
-      - application/json
-      description: Login user and get JWT token
-      parameters:
-      - description: Login credentials
-        in: body
-        name: credentials
-        required: true
-        schema:
-          $ref: '#/definitions/user.LoginDTO'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/user.TokenResponse'
-      summary: Login user
-      tags:
-      - users
-  /api/v1/users/register:
-    post:
-      consumes:
-      - application/json
-      description: Register a new user in the system
-      parameters:
-      - description: User registration data
-        in: body
-        name: user
-        required: true
-        schema:
-          $ref: '#/definitions/user.CreateUserDTO'
-      produces:
-      - application/json
-      responses:
-        "201":
-          description: Created
-          schema:
-            $ref: '#/definitions/user.User'
-      summary: Register new user
-      tags:
-      - users
+      - Users
 schemes:
 - http
 securityDefinitions:

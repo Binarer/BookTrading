@@ -7,8 +7,8 @@ import (
 	"fmt"
 )
 
-// StateUsecase определяет интерфейс для работы с состояниями книг
-type StateUsecase interface {
+// StateUseCase определяет интерфейс для работы с состояниями книг
+type StateUseCase interface {
 	Create(s *state.State) error
 	GetByID(id uint) (*state.State, error)
 	GetAll() ([]*state.State, error)
@@ -16,20 +16,20 @@ type StateUsecase interface {
 	Delete(id uint) error
 }
 
-// stateUsecase реализует интерфейс StateUsecase
-type stateUsecase struct {
+// stateUseCase реализует интерфейс StateUseCase
+type stateUseCase struct {
 	stateRepo repository.StateRepository
 }
 
-// NewStateUsecase создает новый экземпляр stateUsecase
-func NewStateUsecase(stateRepo repository.StateRepository) StateUsecase {
-	return &stateUsecase{
+// NewStateUseCase создает новый экземпляр stateUseCase
+func NewStateUseCase(stateRepo repository.StateRepository) StateUseCase {
+	return &stateUseCase{
 		stateRepo: stateRepo,
 	}
 }
 
 // Create создает новое состояние
-func (u *stateUsecase) Create(s *state.State) error {
+func (u *stateUseCase) Create(s *state.State) error {
 	logger.Info("Creating state in usecase with name: " + s.Name)
 
 	if err := u.stateRepo.Create(s); err != nil {
@@ -42,21 +42,21 @@ func (u *stateUsecase) Create(s *state.State) error {
 }
 
 // GetByID получает состояние по ID
-func (u *stateUsecase) GetByID(id uint) (*state.State, error) {
+func (u *stateUseCase) GetByID(id uint) (*state.State, error) {
 	return u.stateRepo.GetByID(id)
 }
 
 // GetAll получает список всех состояний
-func (u *stateUsecase) GetAll() ([]*state.State, error) {
+func (u *stateUseCase) GetAll() ([]*state.State, error) {
 	return u.stateRepo.GetAll()
 }
 
 // Update обновляет существующее состояние
-func (u *stateUsecase) Update(s *state.State) error {
+func (u *stateUseCase) Update(s *state.State) error {
 	return u.stateRepo.Update(s)
 }
 
 // Delete удаляет состояние по ID
-func (u *stateUsecase) Delete(id uint) error {
+func (u *stateUseCase) Delete(id uint) error {
 	return u.stateRepo.Delete(id)
 }

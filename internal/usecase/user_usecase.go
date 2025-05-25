@@ -1,9 +1,9 @@
 package usecase
 
 import (
+	"booktrading/internal/domain/repository"
 	"booktrading/internal/domain/user"
 	"booktrading/internal/pkg/jwt"
-	"booktrading/internal/repository"
 	"errors"
 	"fmt"
 
@@ -16,7 +16,7 @@ var (
 	ErrUserAlreadyExists  = errors.New("user already exists")
 )
 
-type UserUsecase interface {
+type UserUseCase interface {
 	Register(dto *user.CreateUserDTO) (*user.User, error)
 	Login(dto *user.LoginDTO) (*user.TokenResponse, error)
 	GetByID(id uint) (*user.User, error)
@@ -25,19 +25,19 @@ type UserUsecase interface {
 	Delete(id uint) error
 }
 
-type userUsecase struct {
+type userUseCase struct {
 	userRepo repository.UserRepository
 	jwtSvc   *jwt.Service
 }
 
-func NewUserUsecase(userRepo repository.UserRepository, jwtSvc *jwt.Service) UserUsecase {
-	return &userUsecase{
+func NewUserUseCase(userRepo repository.UserRepository, jwtSvc *jwt.Service) UserUseCase {
+	return &userUseCase{
 		userRepo: userRepo,
 		jwtSvc:   jwtSvc,
 	}
 }
 
-func (u *userUsecase) Register(dto *user.CreateUserDTO) (*user.User, error) {
+func (u *userUseCase) Register(dto *user.CreateUserDTO) (*user.User, error) {
 	// Проверяем, существует ли пользователь
 	existingUser, err := u.userRepo.GetByLogin(dto.Login)
 	if err != nil {
@@ -69,7 +69,7 @@ func (u *userUsecase) Register(dto *user.CreateUserDTO) (*user.User, error) {
 	return newUser, nil
 }
 
-func (u *userUsecase) Login(dto *user.LoginDTO) (*user.TokenResponse, error) {
+func (u *userUseCase) Login(dto *user.LoginDTO) (*user.TokenResponse, error) {
 	// Get user by login
 	existingUser, err := u.userRepo.GetByLogin(dto.Login)
 	if err != nil {
@@ -96,7 +96,7 @@ func (u *userUsecase) Login(dto *user.LoginDTO) (*user.TokenResponse, error) {
 	}, nil
 }
 
-func (u *userUsecase) GetByID(id uint) (*user.User, error) {
+func (u *userUseCase) GetByID(id uint) (*user.User, error) {
 	user, err := u.userRepo.GetByID(id)
 	if err != nil {
 		if errors.Is(err, repository.ErrNotFound) {
@@ -107,7 +107,7 @@ func (u *userUsecase) GetByID(id uint) (*user.User, error) {
 	return user, nil
 }
 
-func (u *userUsecase) GetAll(page, pageSize int) ([]*user.User, int64, error) {
+func (u *userUseCase) GetAll(page, pageSize int) ([]*user.User, int64, error) {
 	if page < 1 {
 		page = 1
 	}
@@ -117,7 +117,7 @@ func (u *userUsecase) GetAll(page, pageSize int) ([]*user.User, int64, error) {
 	return u.userRepo.GetAll(page, pageSize)
 }
 
-func (u *userUsecase) Update(id uint, dto *user.UpdateUserDTO) (*user.User, error) {
+func (u *userUseCase) Update(id uint, dto *user.UpdateUserDTO) (*user.User, error) {
 	existingUser, err := u.userRepo.GetByID(id)
 	if err != nil {
 		if errors.Is(err, repository.ErrNotFound) {
@@ -136,7 +136,7 @@ func (u *userUsecase) Update(id uint, dto *user.UpdateUserDTO) (*user.User, erro
 	return existingUser, nil
 }
 
-func (u *userUsecase) Delete(id uint) error {
+func (u *userUseCase) Delete(id uint) error {
 	if err := u.userRepo.Delete(id); err != nil {
 		if errors.Is(err, repository.ErrNotFound) {
 			return ErrUserNotFound

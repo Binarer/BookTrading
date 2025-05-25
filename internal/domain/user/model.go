@@ -74,31 +74,6 @@ type LoginDTO struct {
 	Password string `json:"password" binding:"required"`
 }
 
-// TokenResponse представляет ответ с JWT токеном
-// @Description Ответ с токенами доступа
-type TokenResponse struct {
-	// @Description JWT токен доступа
-	// @example eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
-	Token string `json:"token"`
-	// @Description Токен для обновления доступа
-	// @example eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
-	RefreshToken string `json:"refresh_token"`
-}
-
-// LoginResponse представляет полный ответ при входе пользователя
-// @Description Полный ответ при успешном входе в систему
-type LoginResponse struct {
-	// @Description JWT токен доступа
-	// @example eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
-	Token string `json:"token"`
-	// @Description Токен для обновления доступа
-	// @example eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
-	RefreshToken string `json:"refresh_token"`
-	// @Description ID пользователя
-	// @example 1
-	UserID uint `json:"user_id"`
-}
-
 // ToUser преобразует DTO в модель User
 func (dto *CreateUserDTO) ToUser() *User {
 	return &User{

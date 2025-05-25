@@ -2,10 +2,10 @@ package http
 
 import (
 	"booktrading/internal/domain/book"
+	"booktrading/internal/domain/response"
 	"booktrading/internal/domain/state"
 	"booktrading/internal/domain/tag"
 	"booktrading/internal/domain/user"
-	"booktrading/internal/pkg/jwt"
 	"booktrading/internal/pkg/logger"
 	"booktrading/internal/pkg/validator"
 	"booktrading/internal/usecase"
@@ -57,9 +57,29 @@ type Handler struct {
 	tagUsecase   usecase.TagUseCase
 	stateUsecase usecase.StateUseCase
 	userUsecase  usecase.UserUseCase
-	jwtSvc       *jwt.Service
 	validate     *validator.Validate
-	tokenAuth    *jwtauth.JWTAuth
+}
+
+// error отправляет ответ с ошибкой
+// @Description Отправляет ответ с ошибкой
+// @Param code body int true "HTTP status code"
+// @Param message body string true "Error message"
+// @Success 200 {object} ErrorResponse
+func (h *Handler) error(w http.ResponseWriter, code int, message string) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(code)
+	json.NewEncoder(w).Encode(ErrorResponse{Error: message})
+}
+
+// respond отправляет успешный ответ
+// @Description Отправляет успешный ответ
+// @Param code body int true "HTTP status code"
+// @Param data body object true "Response data"
+// @Success 200 {object} object
+func (h *Handler) respond(w http.ResponseWriter, code int, data interface{}) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(code)
+	json.NewEncoder(w).Encode(data)
 }
 
 // NewHandler создает новый экземпляр HTTP обработчика
@@ -68,17 +88,13 @@ func NewHandler(
 	tagUsecase usecase.TagUseCase,
 	stateUsecase usecase.StateUseCase,
 	userUsecase usecase.UserUseCase,
-	jwtSvc *jwt.Service,
-	tokenAuth *jwtauth.JWTAuth,
 ) *Handler {
 	return &Handler{
 		bookUsecase:  bookUsecase,
 		tagUsecase:   tagUsecase,
 		stateUsecase: stateUsecase,
 		userUsecase:  userUsecase,
-		jwtSvc:       jwtSvc,
 		validate:     validator.New(),
-		tokenAuth:    tokenAuth,
 	}
 }
 
@@ -325,19 +341,34 @@ func (h *Handler) getBookByID(w http.ResponseWriter, r *http.Request) {
 }
 
 // @Summary Update book
-// @Description Update existing book information
+// @Description Update existing book information. Only the book owner can update it.
 // @Tags Books
 // @Accept json
 // @Produce json
 // @Param id path int true "Book ID"
 // @Param book body book.UpdateBookDTO true "Updated book data"
-// @Success 200 {object} book.Book
-// @Failure 400 {object} ErrorResponse
-// @Failure 401 {object} ErrorResponse
-// @Failure 404 {object} ErrorResponse
-// @Failure 500 {object} ErrorResponse
+// @Success 200 {object} book.Book "Updated book information"
+// @Failure 400 {object} ErrorResponse "Invalid request data or validation failed"
+// @Failure 401 {object} ErrorResponse "Unauthorized - Invalid or missing token"
+// @Failure 403 {object} ErrorResponse "Forbidden - User is not the book owner"
+// @Failure 404 {object} ErrorResponse "Book not found"
+// @Failure 500 {object} ErrorResponse "Internal server error"
 // @Security Bearer
 // @Router /api/v1/books/{id} [put]
+// @Example {json} Request:
+//
+//	{
+//	  "title": "Updated Book Title",
+//	  "author": "Updated Author",
+//	  "description": "Updated book description",
+//	  "photos": [
+//	    {
+//	      "photo_url": "data:image/jpeg;base64,...",
+//	      "is_main": true
+//	    }
+//	  ],
+//	  "tag_ids": [1, 2, 3]
+//	}
 func (h *Handler) updateBook(w http.ResponseWriter, r *http.Request) {
 	// Get book ID from URL
 	id, err := strconv.ParseUint(chi.URLParam(r, "id"), 10, 32)
@@ -839,7 +870,7 @@ func (h *Handler) updateTag(w http.ResponseWriter, r *http.Request) {
 // @Tags Auth
 // @Accept json
 // @Produce json
-// @Success 200 {object} jwt.TokenPair
+// @Success 200 {object} response.TokenResponse
 // @Failure 401 {object} ErrorResponse
 // @Failure 500 {object} ErrorResponse
 // @Security RefreshToken
@@ -852,7 +883,7 @@ func (h *Handler) refreshToken(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Получаем пользователя по refresh token
-	user, err := h.jwtSvc.ValidateRefreshToken(refreshToken)
+	user, err := h.userUsecase.ValidateRefreshToken(refreshToken)
 	if err != nil {
 		logger.Error("Failed to validate refresh token", err)
 		http.Error(w, "Invalid refresh token", http.StatusUnauthorized)
@@ -860,7 +891,7 @@ func (h *Handler) refreshToken(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Генерируем новую пару токенов
-	tokenPair, err := h.jwtSvc.GenerateTokenPair(user)
+	tokenPair, err := h.userUsecase.GenerateTokenPair(user)
 	if err != nil {
 		logger.Error("Failed to generate token pair", err)
 		http.Error(w, "Failed to generate tokens", http.StatusInternalServerError)
@@ -1042,19 +1073,25 @@ func (h *Handler) deleteUser(w http.ResponseWriter, r *http.Request) {
 }
 
 // @Summary Update book state
-// @Description Update the state of an existing book
+// @Description Update the state of an existing book. Only the book owner can update its state.
 // @Tags Books
 // @Accept json
 // @Produce json
 // @Param id path int true "Book ID"
 // @Param state body book.UpdateBookStateDTO true "New state data"
-// @Success 200 {object} book.Book
-// @Failure 400 {object} ErrorResponse
-// @Failure 401 {object} ErrorResponse
-// @Failure 404 {object} ErrorResponse
-// @Failure 500 {object} ErrorResponse
+// @Success 200 {object} book.Book "Updated book with new state"
+// @Failure 400 {object} ErrorResponse "Invalid request data or validation failed"
+// @Failure 401 {object} ErrorResponse "Unauthorized - Invalid or missing token"
+// @Failure 403 {object} ErrorResponse "Forbidden - User is not the book owner"
+// @Failure 404 {object} ErrorResponse "Book not found"
+// @Failure 500 {object} ErrorResponse "Internal server error"
 // @Security Bearer
 // @Router /api/v1/books/{id}/state [patch]
+// @Example {json} Request:
+//
+//	{
+//	  "state_id": 2
+//	}
 func (h *Handler) updateBookState(w http.ResponseWriter, r *http.Request) {
 	id, err := strconv.ParseUint(chi.URLParam(r, "id"), 10, 32)
 	if err != nil {
@@ -1135,8 +1172,8 @@ func (h *Handler) register(w http.ResponseWriter, r *http.Request) {
 // @Tags Auth
 // @Accept json
 // @Produce json
-// @Param credentials body user.LoginDTO true "User login credentials"
-// @Success 200 {object} user.LoginResponse
+// @Param input body user.LoginDTO true "Данные для входа"
+// @Success 200 {object} response.LoginResponse
 // @Failure 400 {object} ErrorResponse
 // @Failure 401 {object} ErrorResponse
 // @Failure 500 {object} ErrorResponse
@@ -1144,34 +1181,27 @@ func (h *Handler) register(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) login(w http.ResponseWriter, r *http.Request) {
 	var dto user.LoginDTO
 	if err := json.NewDecoder(r.Body).Decode(&dto); err != nil {
-		logger.Error("Failed to decode request body", err)
-		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		h.error(w, http.StatusBadRequest, "invalid request body")
 		return
 	}
 
-	// Validate the DTO
-	if err := h.validate.Struct(dto); err != nil {
-		logger.Error("Validation failed", err)
-		http.Error(w, "Validation failed: "+err.Error(), http.StatusBadRequest)
-		return
-	}
-
-	// Authenticate user and get token response
 	tokenResponse, userID, err := h.userUsecase.Login(&dto)
 	if err != nil {
-		logger.Error("Authentication failed", err)
-		http.Error(w, "Invalid credentials", http.StatusUnauthorized)
+		if err == usecase.ErrInvalidCredentials {
+			h.error(w, http.StatusUnauthorized, "invalid credentials")
+			return
+		}
+		h.error(w, http.StatusInternalServerError, "failed to login")
 		return
 	}
 
-	response := user.LoginResponse{
+	response := response.LoginResponse{
 		Token:        tokenResponse.Token,
 		RefreshToken: tokenResponse.RefreshToken,
 		UserID:       userID,
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(response)
+	h.respond(w, http.StatusOK, response)
 }
 
 // @Summary Get all tags
@@ -1213,6 +1243,36 @@ func (h *Handler) deleteTag(w http.ResponseWriter, r *http.Request) {
 
 	if err := h.tagUsecase.DeleteTag(uint(id)); err != nil {
 		http.Error(w, "Failed to delete tag", http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
+}
+
+// @Summary Logout user
+// @Description Logout user and invalidate refresh token. Requires a valid refresh token in the X-Refresh-Token header.
+// @Tags Auth
+// @Accept json
+// @Produce json
+// @Header 204 {string} X-Refresh-Token "Refresh token to invalidate"
+// @Success 204 "No Content - Logout successful"
+// @Failure 400 {object} ErrorResponse "Refresh token is required"
+// @Failure 401 {object} ErrorResponse "Invalid refresh token"
+// @Failure 500 {object} ErrorResponse "Internal server error"
+// @Router /api/v1/auth/logout [post]
+// @Example {json} Request Header:
+//
+//	X-Refresh-Token: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+func (h *Handler) logout(w http.ResponseWriter, r *http.Request) {
+	refreshToken := r.Header.Get("X-Refresh-Token")
+	if refreshToken == "" {
+		h.error(w, http.StatusBadRequest, "Refresh token is required")
+		return
+	}
+
+	if err := h.userUsecase.Logout(refreshToken); err != nil {
+		logger.Error("Failed to logout user", err)
+		h.error(w, http.StatusInternalServerError, "Failed to logout")
 		return
 	}
 

@@ -4,7 +4,6 @@ import (
 	"booktrading/internal/config"
 	httpHandler "booktrading/internal/delivery/http"
 	"booktrading/internal/pkg/cache"
-	"booktrading/internal/pkg/jwt"
 	"booktrading/internal/pkg/logger"
 	"booktrading/internal/repository"
 	"booktrading/internal/repository/mysql"
@@ -58,16 +57,10 @@ func main() {
 	// Создаем JWTAuth из go-chi/jwtauth
 	jwtAuth := jwtauth.New("HS256", []byte(cfg.JWT.SecretKey), nil)
 
-	jwtSvc := jwt.NewService(
-		cfg.JWT.SecretKey,
-		repo.Token,
-		repo.User,
-	)
-
 	// Инициализация кеша
 	cache := cache.NewCache()
 
-	// Инициализация usecase'ов
+	// Инициализация usecase
 	bookUsecase := usecase.NewBookUseCase(
 		repo.Book.(*mysql.BookRepository),
 		repo.Tag.(*mysql.TagRepository),
@@ -82,8 +75,7 @@ func main() {
 	)
 
 	stateUsecase := usecase.NewStateUseCase(repo.State.(*mysql.StateRepository))
-
-	userUsecase := usecase.NewUserUseCase(repo.User, jwtSvc)
+	userUsecase := usecase.NewUserUseCase(repo.User, jwtAuth)
 
 	// Инициализация HTTP обработчика
 	handler := httpHandler.NewHandler(
@@ -91,8 +83,6 @@ func main() {
 		tagUsecase,
 		stateUsecase,
 		userUsecase,
-		jwtSvc,
-		jwtAuth,
 	)
 
 	// Инициализация роутера

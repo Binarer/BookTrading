@@ -1,51 +1,154 @@
 basePath: /
 definitions:
   book.Book:
+    description: Модель книги в системе обмена
     properties:
       author:
+        description: |-
+          @Description Автор книги
+          @example Лев Толстой
         type: string
       created_at:
+        description: |-
+          @Description Дата создания
+          @example 2024-03-20T10:00:00Z
         type: string
       description:
+        description: |-
+          @Description Описание книги
+          @example Роман-эпопея, описывающий русское общество в эпоху войн против Наполеона
         type: string
       id:
+        description: |-
+          @Description ID книги
+          @example 1
         type: integer
+      photos:
+        description: '@Description Фотографии книги'
+        items:
+          $ref: '#/definitions/book.BookPhoto'
+        type: array
       state:
-        $ref: '#/definitions/state.State'
+        allOf:
+        - $ref: '#/definitions/state.State'
+        description: '@Description Информация о состоянии книги'
       state_id:
+        description: |-
+          @Description ID состояния книги
+          @example 1
         type: integer
       tags:
+        description: '@Description Теги книги'
         items:
           $ref: '#/definitions/tag.Tag'
         type: array
       title:
+        description: |-
+          @Description Название книги
+          @example Война и мир
         type: string
       updated_at:
+        description: |-
+          @Description Дата обновления
+          @example 2024-03-20T10:00:00Z
         type: string
       user:
-        $ref: '#/definitions/user.User'
+        allOf:
+        - $ref: '#/definitions/user.User'
+        description: '@Description Информация о владельце книги'
       user_id:
+        description: |-
+          @Description ID владельца книги
+          @example 1
         type: integer
     type: object
+  book.BookPhoto:
+    description: Модель фотографии книги
+    properties:
+      book_id:
+        description: |-
+          @Description ID книги, к которой относится фотография
+          @example 1
+        type: integer
+      created_at:
+        description: |-
+          @Description Дата создания
+          @example 2024-03-20T10:00:00Z
+        type: string
+      id:
+        description: |-
+          @Description ID фотографии
+          @example 1
+        type: integer
+      is_main:
+        description: |-
+          @Description Флаг, указывающий является ли фотография главной
+          @example true
+        type: boolean
+      photo_url:
+        description: |-
+          @Description URL фотографии в формате base64
+          @example data:image/jpeg;base64,/9j/4AAQSkZJRg...
+        type: string
+      updated_at:
+        description: |-
+          @Description Дата обновления
+          @example 2024-03-20T10:00:00Z
+        type: string
+    type: object
+  book.BookPhotoData:
+    description: Данные фотографии для создания книги
+    properties:
+      is_main:
+        description: |-
+          @Description Флаг, указывающий является ли фотография главной
+          @example true
+        type: boolean
+      photo_url:
+        description: |-
+          @Description URL фотографии в формате base64
+          @example "data:image/jpeg;base64,/9j/4AAQSkZJRg..."
+        type: string
+    type: object
   book.CreateBookDTO:
+    description: Данные для создания новой книги
     properties:
       author:
+        description: |-
+          @Description Автор книги
+          @example "Лев Толстой"
         type: string
       description:
+        description: |-
+          @Description Описание книги
+          @example "Роман-эпопея, описывающий русское общество в эпоху войн против Наполеона"
         type: string
       photos:
+        description: '@Description Массив фотографий книги'
         items:
-          type: string
+          $ref: '#/definitions/book.BookPhotoData'
         type: array
       state_id:
+        description: |-
+          @Description ID состояния книги (1 - доступна, 2 - недоступна)
+          @example 1
         type: integer
       tag_ids:
+        description: |-
+          @Description Массив ID тегов книги
+          @example [1, 2, 3]
         items:
           type: integer
         type: array
       title:
+        description: |-
+          @Description Название книги
+          @example "Война и мир"
         type: string
       user_id:
+        description: |-
+          @Description ID пользователя-владельца книги
+          @example 1
         type: integer
     required:
     - author
@@ -54,22 +157,41 @@ definitions:
     - user_id
     type: object
   book.UpdateBookDTO:
+    description: Данные для обновления существующей книги
     properties:
       author:
+        description: |-
+          @Description Автор книги
+          @example Лев Толстой
         type: string
       description:
+        description: |-
+          @Description Описание книги
+          @example Роман-эпопея, описывающий русское общество в эпоху войн против Наполеона
         type: string
       photos:
+        description: |-
+          @Description Массив URL фотографий в формате base64
+          @example ["data:image/jpeg;base64,/9j/4AAQSkZJRg..."]
         items:
           type: string
         type: array
       state_id:
+        description: |-
+          @Description ID состояния книги
+          @example 1
         type: integer
       tag_ids:
+        description: |-
+          @Description Массив ID тегов книги
+          @example [1, 2, 3]
         items:
           type: integer
         type: array
       title:
+        description: |-
+          @Description Название книги
+          @example Война и мир
         type: string
     type: object
   book.UpdateBookStateDTO:
@@ -91,13 +213,37 @@ definitions:
         example: Error message
         type: string
     type: object
-  jwt.TokenPair:
+  response.LoginResponse:
+    description: Полный ответ при успешном входе в систему
     properties:
-      access_token:
-        type: string
-      expires_in:
-        type: integer
       refresh_token:
+        description: |-
+          @Description Токен для обновления доступа
+          @example eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+        type: string
+      token:
+        description: |-
+          @Description JWT токен доступа
+          @example eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+        type: string
+      user_id:
+        description: |-
+          @Description ID пользователя
+          @example 1
+        type: integer
+    type: object
+  response.TokenResponse:
+    description: Ответ с токенами доступа
+    properties:
+      refresh_token:
+        description: |-
+          @Description Токен для обновления доступа
+          @example eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+        type: string
+      token:
+        description: |-
+          @Description JWT токен доступа
+          @example eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
         type: string
     type: object
   state.CreateStateDTO:
@@ -160,6 +306,11 @@ definitions:
         maxLength: 255
         minLength: 1
         type: string
+      photo:
+        description: |-
+          @Description Фото тега в формате base64
+          @example data:image/jpeg;base64,/9j/4AAQSkZJRg...
+        type: string
     required:
     - name
     type: object
@@ -181,6 +332,11 @@ definitions:
           @Description Название тега
           @example fiction
         type: string
+      photo:
+        description: |-
+          @Description Фото тега в формате base64
+          @example data:image/jpeg;base64,/9j/4AAQSkZJRg...
+        type: string
       updated_at:
         description: |-
           @Description Время последнего обновления записи
@@ -197,19 +353,33 @@ definitions:
         maxLength: 255
         minLength: 1
         type: string
+      photo:
+        description: |-
+          @Description Фото тега в формате base64
+          @example data:image/jpeg;base64,/9j/4AAQSkZJRg...
+        type: string
     type: object
   user.CreateUserDTO:
+    description: Данные для создания нового пользователя
     properties:
       login:
+        description: |-
+          @Description Логин пользователя
+          @example john_doe
         maxLength: 50
         minLength: 3
         type: string
       password:
+        description: |-
+          @Description Пароль пользователя
+          @example password123
         maxLength: 50
         minLength: 6
         type: string
       username:
-        description: Отображаемое имя пользователя
+        description: |-
+          @Description Отображаемое имя пользователя
+          @example John Doe
         maxLength: 50
         minLength: 2
         type: string
@@ -219,26 +389,34 @@ definitions:
     - username
     type: object
   user.LoginDTO:
+    description: Данные для входа в систему
     properties:
       login:
+        description: |-
+          @Description Логин пользователя
+          @example john_doe
         type: string
       password:
+        description: |-
+          @Description Пароль пользователя
+          @example password123
         type: string
     required:
     - login
     - password
     type: object
   user.UpdateUserDTO:
+    description: Данные для обновления существующего пользователя
     properties:
       avatar:
-        description: Base64 строка для аватарки
-        type: string
-      login:
-        maxLength: 50
-        minLength: 3
+        description: |-
+          @Description Аватар пользователя в формате base64
+          @example data:image/jpeg;base64,/9j/4AAQSkZJRg...
         type: string
       username:
-        description: Отображаемое имя пользователя
+        description: |-
+          @Description Отображаемое имя пользователя
+          @example John Doe
         maxLength: 50
         minLength: 2
         type: string
@@ -247,23 +425,39 @@ definitions:
     description: Модель пользователя системы обмена книгами
     properties:
       avatar:
-        description: Base64 строка для аватарки
+        description: |-
+          @Description Аватар пользователя в формате base64
+          @example data:image/jpeg;base64,/9j/4AAQSkZJRg...
         type: string
       book_ids:
-        description: Игнорируем в GORM
+        description: '@Description Список ID книг пользователя (не сохраняется в БД)'
         items:
           type: integer
         type: array
       created_at:
+        description: |-
+          @Description Дата создания
+          @example 2024-03-20T10:00:00Z
         type: string
       id:
+        description: |-
+          @Description ID пользователя
+          @example 1
         type: integer
       login:
+        description: |-
+          @Description Логин пользователя
+          @example john_doe
         type: string
       updated_at:
+        description: |-
+          @Description Дата обновления
+          @example 2024-03-20T10:00:00Z
         type: string
       username:
-        description: Отображаемое имя пользователя
+        description: |-
+          @Description Отображаемое имя пользователя
+          @example John Doe
         type: string
     type: object
 host: localhost:8000
@@ -279,9 +473,9 @@ paths:
       - application/json
       description: Authenticate user and return JWT tokens
       parameters:
-      - description: User login credentials
+      - description: Данные для входа
         in: body
-        name: credentials
+        name: input
         required: true
         schema:
           $ref: '#/definitions/user.LoginDTO'
@@ -291,7 +485,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/jwt.TokenPair'
+            $ref: '#/definitions/response.LoginResponse'
         "400":
           description: Bad Request
           schema:
@@ -307,6 +501,32 @@ paths:
       summary: Login user
       tags:
       - Auth
+  /api/v1/auth/logout:
+    post:
+      consumes:
+      - application/json
+      description: Logout user and invalidate refresh token. Requires a valid refresh
+        token in the X-Refresh-Token header.
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: No Content - Logout successful
+        "400":
+          description: Refresh token is required
+          schema:
+            $ref: '#/definitions/http.ErrorResponse'
+        "401":
+          description: Invalid refresh token
+          schema:
+            $ref: '#/definitions/http.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/http.ErrorResponse'
+      summary: Logout user
+      tags:
+      - Auth
   /api/v1/auth/refresh:
     post:
       consumes:
@@ -317,7 +537,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/jwt.TokenPair'
+            $ref: '#/definitions/response.TokenResponse'
         "401":
           description: Unauthorized
           schema:
@@ -407,11 +627,11 @@ paths:
       - application/json
       responses:
         "201":
-          description: Created
+          description: Created book
           schema:
             $ref: '#/definitions/book.Book'
         "400":
-          description: Bad Request
+          description: Invalid request data
           schema:
             $ref: '#/definitions/http.ErrorResponse'
         "401":
@@ -419,7 +639,7 @@ paths:
           schema:
             $ref: '#/definitions/http.ErrorResponse'
         "500":
-          description: Internal Server Error
+          description: Internal server error
           schema:
             $ref: '#/definitions/http.ErrorResponse'
       security:
@@ -489,7 +709,8 @@ paths:
     put:
       consumes:
       - application/json
-      description: Update existing book information
+      description: Update existing book information. Only the book owner can update
+        it.
       parameters:
       - description: Book ID
         in: path
@@ -506,23 +727,27 @@ paths:
       - application/json
       responses:
         "200":
-          description: OK
+          description: Updated book information
           schema:
             $ref: '#/definitions/book.Book'
         "400":
-          description: Bad Request
+          description: Invalid request data or validation failed
           schema:
             $ref: '#/definitions/http.ErrorResponse'
         "401":
-          description: Unauthorized
+          description: Unauthorized - Invalid or missing token
+          schema:
+            $ref: '#/definitions/http.ErrorResponse'
+        "403":
+          description: Forbidden - User is not the book owner
           schema:
             $ref: '#/definitions/http.ErrorResponse'
         "404":
-          description: Not Found
+          description: Book not found
           schema:
             $ref: '#/definitions/http.ErrorResponse'
         "500":
-          description: Internal Server Error
+          description: Internal server error
           schema:
             $ref: '#/definitions/http.ErrorResponse'
       security:
@@ -534,7 +759,8 @@ paths:
     patch:
       consumes:
       - application/json
-      description: Update the state of an existing book
+      description: Update the state of an existing book. Only the book owner can update
+        its state.
       parameters:
       - description: Book ID
         in: path
@@ -551,23 +777,27 @@ paths:
       - application/json
       responses:
         "200":
-          description: OK
+          description: Updated book with new state
           schema:
             $ref: '#/definitions/book.Book'
         "400":
-          description: Bad Request
+          description: Invalid request data or validation failed
           schema:
             $ref: '#/definitions/http.ErrorResponse'
         "401":
-          description: Unauthorized
+          description: Unauthorized - Invalid or missing token
+          schema:
+            $ref: '#/definitions/http.ErrorResponse'
+        "403":
+          description: Forbidden - User is not the book owner
           schema:
             $ref: '#/definitions/http.ErrorResponse'
         "404":
-          description: Not Found
+          description: Book not found
           schema:
             $ref: '#/definitions/http.ErrorResponse'
         "500":
-          description: Internal Server Error
+          description: Internal server error
           schema:
             $ref: '#/definitions/http.ErrorResponse'
       security:
@@ -833,7 +1063,7 @@ paths:
     post:
       consumes:
       - application/json
-      description: Create a new tag with the provided name
+      description: Create a new tag with the provided name and optional photo
       parameters:
       - description: Tag data
         in: body
@@ -927,7 +1157,7 @@ paths:
     put:
       consumes:
       - application/json
-      description: Update existing tag information
+      description: Update existing tag information including optional photo
       parameters:
       - description: Tag ID
         in: path

@@ -62,9 +62,12 @@ func NewRouter(h *Handler, jwtAuth *jwtauth.JWTAuth) *chi.Mux {
 		r.Get("/api/v1/tags/popular", h.getPopularTags)
 		r.Get("/api/v1/states", h.getAllStates)
 		r.Get("/api/v1/states/{id}", h.getStateByID)
+
+		// Auth routes
 		r.Post("/api/v1/auth/register", h.register)
 		r.Post("/api/v1/auth/login", h.login)
 		r.Post("/api/v1/auth/refresh", h.refreshToken)
+		r.Post("/api/v1/auth/logout", h.logout)
 	})
 
 	// Protected routes

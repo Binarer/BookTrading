@@ -2,11 +2,12 @@ package usecase
 
 import (
 	"booktrading/internal/domain/repository"
+	"booktrading/internal/domain/response"
 	"booktrading/internal/domain/user"
-	"booktrading/internal/pkg/jwt"
 	"errors"
 	"fmt"
 
+	"github.com/go-chi/jwtauth/v5"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -18,22 +19,25 @@ var (
 
 type UserUseCase interface {
 	Register(dto *user.CreateUserDTO) (*user.User, error)
-	Login(dto *user.LoginDTO) (*user.TokenResponse, uint, error)
+	Login(dto *user.LoginDTO) (*response.TokenResponse, uint, error)
+	Logout(refreshToken string) error
 	GetByID(id uint) (*user.User, error)
 	GetAll(page, pageSize int) ([]*user.User, int64, error)
 	Update(id uint, dto *user.UpdateUserDTO) (*user.User, error)
 	Delete(id uint) error
+	GenerateTokenPair(user *user.User) (*response.TokenResponse, error)
+	ValidateRefreshToken(token string) (*user.User, error)
 }
 
 type userUseCase struct {
 	userRepo repository.UserRepository
-	jwtSvc   *jwt.Service
+	jwtAuth  *jwtauth.JWTAuth
 }
 
-func NewUserUseCase(userRepo repository.UserRepository, jwtSvc *jwt.Service) UserUseCase {
+func NewUserUseCase(userRepo repository.UserRepository, jwtAuth *jwtauth.JWTAuth) UserUseCase {
 	return &userUseCase{
 		userRepo: userRepo,
-		jwtSvc:   jwtSvc,
+		jwtAuth:  jwtAuth,
 	}
 }
 
@@ -69,7 +73,7 @@ func (u *userUseCase) Register(dto *user.CreateUserDTO) (*user.User, error) {
 	return newUser, nil
 }
 
-func (u *userUseCase) Login(dto *user.LoginDTO) (*user.TokenResponse, uint, error) {
+func (u *userUseCase) Login(dto *user.LoginDTO) (*response.TokenResponse, uint, error) {
 	// Get user by login
 	existingUser, err := u.userRepo.GetByLogin(dto.Login)
 	if err != nil {
@@ -85,15 +89,12 @@ func (u *userUseCase) Login(dto *user.LoginDTO) (*user.TokenResponse, uint, erro
 	}
 
 	// Generate JWT token pair
-	tokenPair, err := u.jwtSvc.GenerateTokenPair(existingUser)
+	tokenPair, err := u.GenerateTokenPair(existingUser)
 	if err != nil {
 		return nil, 0, fmt.Errorf("failed to generate token pair: %w", err)
 	}
 
-	return &user.TokenResponse{
-		Token:        tokenPair.AccessToken,
-		RefreshToken: tokenPair.RefreshToken,
-	}, existingUser.ID, nil
+	return tokenPair, existingUser.ID, nil
 }
 
 func (u *userUseCase) GetByID(id uint) (*user.User, error) {
@@ -144,4 +145,77 @@ func (u *userUseCase) Delete(id uint) error {
 		return err
 	}
 	return nil
+}
+
+// Logout выполняет выход пользователя из системы
+func (u *userUseCase) Logout(refreshToken string) error {
+	// Валидируем токен перед инвалидацией
+	token, err := u.jwtAuth.Decode(refreshToken)
+	if err != nil {
+		return fmt.Errorf("invalid refresh token: %w", err)
+	}
+
+	// Проверяем тип токена
+	tokenType, ok := token.PrivateClaims()["type"].(string)
+	if !ok || tokenType != "refresh" {
+		return errors.New("invalid token type")
+	}
+
+	return nil
+}
+
+// GenerateTokenPair генерирует пару токенов для пользователя
+func (u *userUseCase) GenerateTokenPair(user *user.User) (*response.TokenResponse, error) {
+	// Генерируем access token
+	_, accessToken, err := u.jwtAuth.Encode(map[string]interface{}{
+		"user_id": user.ID,
+		"login":   user.Login,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to generate access token: %w", err)
+	}
+
+	// Генерируем refresh token
+	_, refreshToken, err := u.jwtAuth.Encode(map[string]interface{}{
+		"user_id": user.ID,
+		"type":    "refresh",
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to generate refresh token: %w", err)
+	}
+
+	tokenResponse := &response.TokenResponse{
+		Token:        accessToken,
+		RefreshToken: refreshToken,
+	}
+	return tokenResponse, nil
+}
+
+// ValidateRefreshToken проверяет refresh token
+func (u *userUseCase) ValidateRefreshToken(token string) (*user.User, error) {
+	// Валидируем токен
+	jwtToken, err := u.jwtAuth.Decode(token)
+	if err != nil {
+		return nil, fmt.Errorf("failed to decode token: %w", err)
+	}
+
+	// Проверяем тип токена
+	tokenType, ok := jwtToken.PrivateClaims()["type"].(string)
+	if !ok || tokenType != "refresh" {
+		return nil, errors.New("invalid token type")
+	}
+
+	// Получаем ID пользователя
+	userID, ok := jwtToken.PrivateClaims()["user_id"].(float64)
+	if !ok {
+		return nil, errors.New("invalid user ID in token")
+	}
+
+	// Получаем пользователя
+	user, err := u.userRepo.GetByID(uint(userID))
+	if err != nil {
+		return nil, fmt.Errorf("failed to get user: %w", err)
+	}
+
+	return user, nil
 }

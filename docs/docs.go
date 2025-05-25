@@ -30,8 +30,8 @@ const docTemplate = `{
                 "summary": "Login user",
                 "parameters": [
                     {
-                        "description": "User login credentials",
-                        "name": "credentials",
+                        "description": "Данные для входа",
+                        "name": "input",
                         "in": "body",
                         "required": true,
                         "schema": {
@@ -43,7 +43,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/jwt.TokenPair"
+                            "$ref": "#/definitions/response.LoginResponse"
                         }
                     },
                     "400": {
@@ -60,6 +60,44 @@ const docTemplate = `{
                     },
                     "500": {
                         "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/http.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/auth/logout": {
+            "post": {
+                "description": "Logout user and invalidate refresh token. Requires a valid refresh token in the X-Refresh-Token header.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Auth"
+                ],
+                "summary": "Logout user",
+                "responses": {
+                    "204": {
+                        "description": "No Content - Logout successful"
+                    },
+                    "400": {
+                        "description": "Refresh token is required",
+                        "schema": {
+                            "$ref": "#/definitions/http.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Invalid refresh token",
+                        "schema": {
+                            "$ref": "#/definitions/http.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
                         "schema": {
                             "$ref": "#/definitions/http.ErrorResponse"
                         }
@@ -88,7 +126,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/jwt.TokenPair"
+                            "$ref": "#/definitions/response.TokenResponse"
                         }
                     },
                     "401": {
@@ -228,13 +266,13 @@ const docTemplate = `{
                 ],
                 "responses": {
                     "201": {
-                        "description": "Created",
+                        "description": "Created book",
                         "schema": {
                             "$ref": "#/definitions/book.Book"
                         }
                     },
                     "400": {
-                        "description": "Bad Request",
+                        "description": "Invalid request data",
                         "schema": {
                             "$ref": "#/definitions/http.ErrorResponse"
                         }
@@ -246,7 +284,7 @@ const docTemplate = `{
                         }
                     },
                     "500": {
-                        "description": "Internal Server Error",
+                        "description": "Internal server error",
                         "schema": {
                             "$ref": "#/definitions/http.ErrorResponse"
                         }
@@ -348,7 +386,7 @@ const docTemplate = `{
                         "Bearer": []
                     }
                 ],
-                "description": "Update existing book information",
+                "description": "Update existing book information. Only the book owner can update it.",
                 "consumes": [
                     "application/json"
                 ],
@@ -379,31 +417,37 @@ const docTemplate = `{
                 ],
                 "responses": {
                     "200": {
-                        "description": "OK",
+                        "description": "Updated book information",
                         "schema": {
                             "$ref": "#/definitions/book.Book"
                         }
                     },
                     "400": {
-                        "description": "Bad Request",
+                        "description": "Invalid request data or validation failed",
                         "schema": {
                             "$ref": "#/definitions/http.ErrorResponse"
                         }
                     },
                     "401": {
-                        "description": "Unauthorized",
+                        "description": "Unauthorized - Invalid or missing token",
+                        "schema": {
+                            "$ref": "#/definitions/http.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden - User is not the book owner",
                         "schema": {
                             "$ref": "#/definitions/http.ErrorResponse"
                         }
                     },
                     "404": {
-                        "description": "Not Found",
+                        "description": "Book not found",
                         "schema": {
                             "$ref": "#/definitions/http.ErrorResponse"
                         }
                     },
                     "500": {
-                        "description": "Internal Server Error",
+                        "description": "Internal server error",
                         "schema": {
                             "$ref": "#/definitions/http.ErrorResponse"
                         }
@@ -468,7 +512,7 @@ const docTemplate = `{
                         "Bearer": []
                     }
                 ],
-                "description": "Update the state of an existing book",
+                "description": "Update the state of an existing book. Only the book owner can update its state.",
                 "consumes": [
                     "application/json"
                 ],
@@ -499,31 +543,37 @@ const docTemplate = `{
                 ],
                 "responses": {
                     "200": {
-                        "description": "OK",
+                        "description": "Updated book with new state",
                         "schema": {
                             "$ref": "#/definitions/book.Book"
                         }
                     },
                     "400": {
-                        "description": "Bad Request",
+                        "description": "Invalid request data or validation failed",
                         "schema": {
                             "$ref": "#/definitions/http.ErrorResponse"
                         }
                     },
                     "401": {
-                        "description": "Unauthorized",
+                        "description": "Unauthorized - Invalid or missing token",
+                        "schema": {
+                            "$ref": "#/definitions/http.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden - User is not the book owner",
                         "schema": {
                             "$ref": "#/definitions/http.ErrorResponse"
                         }
                     },
                     "404": {
-                        "description": "Not Found",
+                        "description": "Book not found",
                         "schema": {
                             "$ref": "#/definitions/http.ErrorResponse"
                         }
                     },
                     "500": {
-                        "description": "Internal Server Error",
+                        "description": "Internal server error",
                         "schema": {
                             "$ref": "#/definitions/http.ErrorResponse"
                         }
@@ -881,7 +931,7 @@ const docTemplate = `{
                         "Bearer": []
                     }
                 ],
-                "description": "Create a new tag with the provided name",
+                "description": "Create a new tag with the provided name and optional photo",
                 "consumes": [
                     "application/json"
                 ],
@@ -1014,7 +1064,7 @@ const docTemplate = `{
                         "Bearer": []
                     }
                 ],
-                "description": "Update existing tag information",
+                "description": "Update existing tag information including optional photo",
                 "consumes": [
                     "application/json"
                 ],
@@ -1423,47 +1473,119 @@ const docTemplate = `{
     },
     "definitions": {
         "book.Book": {
+            "description": "Модель книги в системе обмена",
             "type": "object",
             "properties": {
                 "author": {
+                    "description": "@Description Автор книги\n@example Лев Толстой",
                     "type": "string"
                 },
                 "created_at": {
+                    "description": "@Description Дата создания\n@example 2024-03-20T10:00:00Z",
                     "type": "string"
                 },
                 "description": {
+                    "description": "@Description Описание книги\n@example Роман-эпопея, описывающий русское общество в эпоху войн против Наполеона",
                     "type": "string"
                 },
                 "id": {
+                    "description": "@Description ID книги\n@example 1",
                     "type": "integer"
                 },
+                "photos": {
+                    "description": "@Description Фотографии книги",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/book.BookPhoto"
+                    }
+                },
                 "state": {
-                    "$ref": "#/definitions/state.State"
+                    "description": "@Description Информация о состоянии книги",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/state.State"
+                        }
+                    ]
                 },
                 "state_id": {
+                    "description": "@Description ID состояния книги\n@example 1",
                     "type": "integer"
                 },
                 "tags": {
+                    "description": "@Description Теги книги",
                     "type": "array",
                     "items": {
                         "$ref": "#/definitions/tag.Tag"
                     }
                 },
                 "title": {
+                    "description": "@Description Название книги\n@example Война и мир",
                     "type": "string"
                 },
                 "updated_at": {
+                    "description": "@Description Дата обновления\n@example 2024-03-20T10:00:00Z",
                     "type": "string"
                 },
                 "user": {
-                    "$ref": "#/definitions/user.User"
+                    "description": "@Description Информация о владельце книги",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/user.User"
+                        }
+                    ]
                 },
                 "user_id": {
+                    "description": "@Description ID владельца книги\n@example 1",
                     "type": "integer"
                 }
             }
         },
+        "book.BookPhoto": {
+            "description": "Модель фотографии книги",
+            "type": "object",
+            "properties": {
+                "book_id": {
+                    "description": "@Description ID книги, к которой относится фотография\n@example 1",
+                    "type": "integer"
+                },
+                "created_at": {
+                    "description": "@Description Дата создания\n@example 2024-03-20T10:00:00Z",
+                    "type": "string"
+                },
+                "id": {
+                    "description": "@Description ID фотографии\n@example 1",
+                    "type": "integer"
+                },
+                "is_main": {
+                    "description": "@Description Флаг, указывающий является ли фотография главной\n@example true",
+                    "type": "boolean"
+                },
+                "photo_url": {
+                    "description": "@Description URL фотографии в формате base64\n@example data:image/jpeg;base64,/9j/4AAQSkZJRg...",
+                    "type": "string"
+                },
+                "updated_at": {
+                    "description": "@Description Дата обновления\n@example 2024-03-20T10:00:00Z",
+                    "type": "string"
+                }
+            }
+        },
+        "book.BookPhotoData": {
+            "description": "Данные фотографии для создания книги",
+            "type": "object",
+            "properties": {
+                "is_main": {
+                    "description": "@Description Флаг, указывающий является ли фотография главной\n@example true",
+                    "type": "boolean"
+                },
+                "photo_url": {
+                    "description": "@Description URL фотографии в формате base64\n@example \"data:image/jpeg;base64,/9j/4AAQSkZJRg...\"",
+                    "type": "string"
+                }
+            }
+        },
         "book.CreateBookDTO": {
+            "description": "Данные для создания новой книги",
             "type": "object",
             "required": [
                 "author",
@@ -1473,59 +1595,73 @@ const docTemplate = `{
             ],
             "properties": {
                 "author": {
+                    "description": "@Description Автор книги\n@example \"Лев Толстой\"",
                     "type": "string"
                 },
                 "description": {
+                    "description": "@Description Описание книги\n@example \"Роман-эпопея, описывающий русское общество в эпоху войн против Наполеона\"",
                     "type": "string"
                 },
                 "photos": {
+                    "description": "@Description Массив фотографий книги",
                     "type": "array",
                     "items": {
-                        "type": "string"
+                        "$ref": "#/definitions/book.BookPhotoData"
                     }
                 },
                 "state_id": {
+                    "description": "@Description ID состояния книги (1 - доступна, 2 - недоступна)\n@example 1",
                     "type": "integer"
                 },
                 "tag_ids": {
+                    "description": "@Description Массив ID тегов книги\n@example [1, 2, 3]",
                     "type": "array",
                     "items": {
                         "type": "integer"
                     }
                 },
                 "title": {
+                    "description": "@Description Название книги\n@example \"Война и мир\"",
                     "type": "string"
                 },
                 "user_id": {
+                    "description": "@Description ID пользователя-владельца книги\n@example 1",
                     "type": "integer"
                 }
             }
         },
         "book.UpdateBookDTO": {
+            "description": "Данные для обновления существующей книги",
             "type": "object",
             "properties": {
                 "author": {
+                    "description": "@Description Автор книги\n@example Лев Толстой",
                     "type": "string"
                 },
                 "description": {
+                    "description": "@Description Описание книги\n@example Роман-эпопея, описывающий русское общество в эпоху войн против Наполеона",
                     "type": "string"
                 },
                 "photos": {
+                    "description": "@Description Массив URL фотографий в формате base64\n@example [\"data:image/jpeg;base64,/9j/4AAQSkZJRg...\"]",
                     "type": "array",
                     "items": {
                         "type": "string"
                     }
                 },
                 "state_id": {
+                    "description": "@Description ID состояния книги\n@example 1",
                     "type": "integer"
                 },
                 "tag_ids": {
+                    "description": "@Description Массив ID тегов книги\n@example [1, 2, 3]",
                     "type": "array",
                     "items": {
                         "type": "integer"
                     }
                 },
                 "title": {
+                    "description": "@Description Название книги\n@example Война и мир",
                     "type": "string"
                 }
             }
@@ -1554,16 +1690,34 @@ const docTemplate = `{
                 }
             }
         },
-        "jwt.TokenPair": {
+        "response.LoginResponse": {
+            "description": "Полный ответ при успешном входе в систему",
             "type": "object",
             "properties": {
-                "access_token": {
+                "refresh_token": {
+                    "description": "@Description Токен для обновления доступа\n@example eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
                     "type": "string"
                 },
-                "expires_in": {
-                    "type": "integer"
+                "token": {
+                    "description": "@Description JWT токен доступа\n@example eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+                    "type": "string"
                 },
+                "user_id": {
+                    "description": "@Description ID пользователя\n@example 1",
+                    "type": "integer"
+                }
+            }
+        },
+        "response.TokenResponse": {
+            "description": "Ответ с токенами доступа",
+            "type": "object",
+            "properties": {
                 "refresh_token": {
+                    "description": "@Description Токен для обновления доступа\n@example eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+                    "type": "string"
+                },
+                "token": {
+                    "description": "@Description JWT токен доступа\n@example eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
                     "type": "string"
                 }
             }
@@ -1632,6 +1786,10 @@ const docTemplate = `{
                     "type": "string",
                     "maxLength": 255,
                     "minLength": 1
+                },
+                "photo": {
+                    "description": "@Description Фото тега в формате base64\n@example data:image/jpeg;base64,/9j/4AAQSkZJRg...",
+                    "type": "string"
                 }
             }
         },
@@ -1651,6 +1809,10 @@ const docTemplate = `{
                     "description": "@Description Название тега\n@example fiction",
                     "type": "string"
                 },
+                "photo": {
+                    "description": "@Description Фото тега в формате base64\n@example data:image/jpeg;base64,/9j/4AAQSkZJRg...",
+                    "type": "string"
+                },
                 "updated_at": {
                     "description": "@Description Время последнего обновления записи\n@example 2025-04-28T12:00:00Z",
                     "type": "string"
@@ -1666,10 +1828,15 @@ const docTemplate = `{
                     "type": "string",
                     "maxLength": 255,
                     "minLength": 1
+                },
+                "photo": {
+                    "description": "@Description Фото тега в формате base64\n@example data:image/jpeg;base64,/9j/4AAQSkZJRg...",
+                    "type": "string"
                 }
             }
         },
         "user.CreateUserDTO": {
+            "description": "Данные для создания нового пользователя",
             "type": "object",
             "required": [
                 "login",
@@ -1678,17 +1845,19 @@ const docTemplate = `{
             ],
             "properties": {
                 "login": {
+                    "description": "@Description Логин пользователя\n@example john_doe",
                     "type": "string",
                     "maxLength": 50,
                     "minLength": 3
                 },
                 "password": {
+                    "description": "@Description Пароль пользователя\n@example password123",
                     "type": "string",
                     "maxLength": 50,
                     "minLength": 6
                 },
                 "username": {
-                    "description": "Отображаемое имя пользователя",
+                    "description": "@Description Отображаемое имя пользователя\n@example John Doe",
                     "type": "string",
                     "maxLength": 50,
                     "minLength": 2
@@ -1696,6 +1865,7 @@ const docTemplate = `{
             }
         },
         "user.LoginDTO": {
+            "description": "Данные для входа в систему",
             "type": "object",
             "required": [
                 "login",
@@ -1703,27 +1873,25 @@ const docTemplate = `{
             ],
             "properties": {
                 "login": {
+                    "description": "@Description Логин пользователя\n@example john_doe",
                     "type": "string"
                 },
                 "password": {
+                    "description": "@Description Пароль пользователя\n@example password123",
                     "type": "string"
                 }
             }
         },
         "user.UpdateUserDTO": {
+            "description": "Данные для обновления существующего пользователя",
             "type": "object",
             "properties": {
                 "avatar": {
-                    "description": "Base64 строка для аватарки",
+                    "description": "@Description Аватар пользователя в формате base64\n@example data:image/jpeg;base64,/9j/4AAQSkZJRg...",
                     "type": "string"
                 },
-                "login": {
-                    "type": "string",
-                    "maxLength": 50,
-                    "minLength": 3
-                },
                 "username": {
-                    "description": "Отображаемое имя пользователя",
+                    "description": "@Description Отображаемое имя пользователя\n@example John Doe",
                     "type": "string",
                     "maxLength": 50,
                     "minLength": 2
@@ -1735,30 +1903,34 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "avatar": {
-                    "description": "Base64 строка для аватарки",
+                    "description": "@Description Аватар пользователя в формате base64\n@example data:image/jpeg;base64,/9j/4AAQSkZJRg...",
                     "type": "string"
                 },
                 "book_ids": {
-                    "description": "Игнорируем в GORM",
+                    "description": "@Description Список ID книг пользователя (не сохраняется в БД)",
                     "type": "array",
                     "items": {
                         "type": "integer"
                     }
                 },
                 "created_at": {
+                    "description": "@Description Дата создания\n@example 2024-03-20T10:00:00Z",
                     "type": "string"
                 },
                 "id": {
+                    "description": "@Description ID пользователя\n@example 1",
                     "type": "integer"
                 },
                 "login": {
+                    "description": "@Description Логин пользователя\n@example john_doe",
                     "type": "string"
                 },
                 "updated_at": {
+                    "description": "@Description Дата обновления\n@example 2024-03-20T10:00:00Z",
                     "type": "string"
                 },
                 "username": {
-                    "description": "Отображаемое имя пользователя",
+                    "description": "@Description Отображаемое имя пользователя\n@example John Doe",
                     "type": "string"
                 }
             }

@@ -50,6 +50,13 @@ type TokenResponse struct {
 	RefreshToken string `json:"refresh_token"`
 }
 
+// LoginResponse представляет полный ответ при входе пользователя
+type LoginResponse struct {
+	Token        string `json:"token"`
+	RefreshToken string `json:"refresh_token"`
+	UserID       uint   `json:"user_id"`
+}
+
 // ToUser преобразует DTO в модель User
 func (dto *CreateUserDTO) ToUser() *User {
 	return &User{

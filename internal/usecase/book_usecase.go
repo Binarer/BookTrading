@@ -16,10 +16,12 @@ type BookUseCase interface {
 	GetAllBooks(page, pageSize int) ([]*book.Book, int64, error)
 	GetBooksByTags(tagIDs []uint) ([]*book.Book, error)
 	AddTagsToBook(bookID uint, tagIDs []uint) error
-	UpdateBook(id uint, dto *book.UpdateBookDTO) (*book.Book, error)
+	UpdateBook(book *book.Book, tagIDs []uint) error
 	UpdateBookState(id uint, stateID uint) (*book.Book, error)
 	DeleteBook(id uint) error
 	GetUserBooks(userID uint, page, pageSize int) ([]*book.Book, int64, error)
+	CreatePhoto(photo *book.BookPhoto) error
+	DeletePhotos(bookID uint) error
 }
 
 // bookUseCase реализует интерфейс BookUseCase
@@ -153,41 +155,30 @@ func (u *bookUseCase) AddTagsToBook(bookID uint, tagIDs []uint) error {
 }
 
 // UpdateBook обновляет существующую книгу
-func (u *bookUseCase) UpdateBook(id uint, dto *book.UpdateBookDTO) (*book.Book, error) {
-	// Получаем существующую книгу
-	existingBook, err := u.GetBookByID(id)
-	if err != nil {
-		return nil, err
+func (u *bookUseCase) UpdateBook(book *book.Book, tagIDs []uint) error {
+	// Получаем теги
+	var tags []*tag.Tag
+	for _, tagID := range tagIDs {
+		tag, err := u.tagRepo.GetByID(tagID)
+		if err != nil {
+			return err
+		}
+		tags = append(tags, tag)
 	}
 
-	// Обновляем поля
-	if dto.Title != "" {
-		existingBook.Title = dto.Title
-	}
-	if dto.Author != "" {
-		existingBook.Author = dto.Author
-	}
-	if dto.Description != "" {
-		existingBook.Description = dto.Description
-	}
-	if dto.StateID != 0 {
-		// Проверяем существование нового состояния
-		if _, err := u.stateRepo.GetByID(uint(dto.StateID)); err != nil {
-			return nil, fmt.Errorf("invalid state ID: %w", err)
-		}
-		existingBook.StateID = uint(dto.StateID)
-	}
+	// Добавляем теги к книге
+	u.bookSvc.AddTags(book, tags)
 
 	// Обновляем в репозитории
-	if err := u.bookRepo.Update(existingBook); err != nil {
-		return nil, err
+	if err := u.bookRepo.Update(book); err != nil {
+		return err
 	}
 
 	// Инвалидация кеша
 	u.cache.DeletePattern("books:")
 	u.cache.Delete("books:all")
 
-	return existingBook, nil
+	return nil
 }
 
 // UpdateBookState обновляет состояние книги
@@ -283,4 +274,42 @@ func (u *bookUseCase) GetUserBooks(userID uint, page, pageSize int) ([]*book.Boo
 	}
 
 	return u.bookRepo.GetUserBooks(userID, page, pageSize)
+}
+
+// CreatePhoto создает новую фотографию для книги
+func (u *bookUseCase) CreatePhoto(photo *book.BookPhoto) error {
+	// Проверяем существование книги
+	if _, err := u.GetBookByID(photo.BookID); err != nil {
+		return err
+	}
+
+	// Сохраняем в репозитории
+	if err := u.bookRepo.CreatePhoto(photo); err != nil {
+		return err
+	}
+
+	// Инвалидация кеша
+	u.cache.DeletePattern("books:")
+	u.cache.Delete("books:all")
+
+	return nil
+}
+
+// DeletePhotos удаляет все фотографии книги
+func (u *bookUseCase) DeletePhotos(bookID uint) error {
+	// Проверяем существование книги
+	if _, err := u.GetBookByID(bookID); err != nil {
+		return err
+	}
+
+	// Удаляем из репозитория
+	if err := u.bookRepo.DeletePhotos(bookID); err != nil {
+		return err
+	}
+
+	// Инвалидация кеша
+	u.cache.DeletePattern("books:")
+	u.cache.Delete("books:all")
+
+	return nil
 }

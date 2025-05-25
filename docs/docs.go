@@ -1437,12 +1437,6 @@ const docTemplate = `{
                 "id": {
                     "type": "integer"
                 },
-                "photos": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/book.BookPhoto"
-                    }
-                },
                 "state": {
                     "$ref": "#/definitions/state.State"
                 },
@@ -1466,29 +1460,6 @@ const docTemplate = `{
                 },
                 "user_id": {
                     "type": "integer"
-                }
-            }
-        },
-        "book.BookPhoto": {
-            "type": "object",
-            "properties": {
-                "book_id": {
-                    "type": "integer"
-                },
-                "created_at": {
-                    "type": "string"
-                },
-                "id": {
-                    "type": "integer"
-                },
-                "is_main": {
-                    "type": "boolean"
-                },
-                "photo_url": {
-                    "type": "string"
-                },
-                "updated_at": {
-                    "type": "string"
                 }
             }
         },

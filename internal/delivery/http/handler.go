@@ -235,6 +235,22 @@ func (h *Handler) createBook(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Create photos if they exist
+	if len(dto.Photos) > 0 {
+		for i, photoURL := range dto.Photos {
+			photo := &book.BookPhoto{
+				BookID:   newBook.ID,
+				PhotoURL: photoURL,
+				IsMain:   i == 0, // Первая фотография - главная
+			}
+			if err := h.bookUsecase.CreatePhoto(photo); err != nil {
+				logger.Error("Failed to create photo", err)
+				http.Error(w, "Failed to create photo: "+err.Error(), http.StatusInternalServerError)
+				return
+			}
+		}
+	}
+
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
 	json.NewEncoder(w).Encode(newBook)
@@ -283,10 +299,42 @@ func (h *Handler) getBookByID(w http.ResponseWriter, r *http.Request) {
 // @Security Bearer
 // @Router /api/v1/books/{id} [put]
 func (h *Handler) updateBook(w http.ResponseWriter, r *http.Request) {
+	// Get book ID from URL
 	id, err := strconv.ParseUint(chi.URLParam(r, "id"), 10, 32)
 	if err != nil {
 		logger.Error("Invalid book ID", err)
 		http.Error(w, "Invalid book ID", http.StatusBadRequest)
+		return
+	}
+
+	// Get claims from context
+	_, claims, err := jwtauth.FromContext(r.Context())
+	if err != nil {
+		logger.Error("Failed to get claims from context", err)
+		http.Error(w, "Authentication failed: Token not found", http.StatusUnauthorized)
+		return
+	}
+
+	// Get user ID from claims
+	userID, ok := claims["user_id"].(float64)
+	if !ok {
+		logger.Error("User ID not found in claims", nil)
+		http.Error(w, "Authentication failed: User ID not found in token claims", http.StatusUnauthorized)
+		return
+	}
+
+	// Get existing book
+	existingBook, err := h.bookUsecase.GetBookByID(uint(id))
+	if err != nil {
+		logger.Error("Failed to get book", err)
+		http.Error(w, "Book not found", http.StatusNotFound)
+		return
+	}
+
+	// Check if user owns the book
+	if existingBook.UserID != uint(userID) {
+		logger.Error("User does not own the book", nil)
+		http.Error(w, "You don't have permission to update this book", http.StatusForbidden)
 		return
 	}
 
@@ -304,16 +352,42 @@ func (h *Handler) updateBook(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Update book fields
+	existingBook.UpdateFromDTO(&dto)
+
 	// Update book
-	updatedBook, err := h.bookUsecase.UpdateBook(uint(id), &dto)
-	if err != nil {
+	if err := h.bookUsecase.UpdateBook(existingBook, dto.TagIDs); err != nil {
 		logger.Error("Failed to update book", err)
-		http.Error(w, "Failed to update book", http.StatusInternalServerError)
+		http.Error(w, "Failed to update book: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
 
+	// Update photos if they exist
+	if len(dto.Photos) > 0 {
+		// Delete existing photos
+		if err := h.bookUsecase.DeletePhotos(existingBook.ID); err != nil {
+			logger.Error("Failed to delete existing photos", err)
+			http.Error(w, "Failed to delete existing photos: "+err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		// Create new photos
+		for i, photoURL := range dto.Photos {
+			photo := &book.BookPhoto{
+				BookID:   existingBook.ID,
+				PhotoURL: photoURL,
+				IsMain:   i == 0, // Первая фотография - главная
+			}
+			if err := h.bookUsecase.CreatePhoto(photo); err != nil {
+				logger.Error("Failed to create photo", err)
+				http.Error(w, "Failed to create photo: "+err.Error(), http.StatusInternalServerError)
+				return
+			}
+		}
+	}
+
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(updatedBook)
+	json.NewEncoder(w).Encode(existingBook)
 }
 
 // @Summary Delete book

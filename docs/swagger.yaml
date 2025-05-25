@@ -10,10 +10,6 @@ definitions:
         type: string
       id:
         type: integer
-      photos:
-        items:
-          $ref: '#/definitions/book.BookPhoto'
-        type: array
       state:
         $ref: '#/definitions/state.State'
       state_id:
@@ -30,21 +26,6 @@ definitions:
         $ref: '#/definitions/user.User'
       user_id:
         type: integer
-    type: object
-  book.BookPhoto:
-    properties:
-      book_id:
-        type: integer
-      created_at:
-        type: string
-      id:
-        type: integer
-      is_main:
-        type: boolean
-      photo_url:
-        type: string
-      updated_at:
-        type: string
     type: object
   book.CreateBookDTO:
     properties:

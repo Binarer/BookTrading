@@ -38,12 +38,12 @@ type Book struct {
 	Title       string       `json:"title" gorm:"type:varchar(255);not null;index"`
 	Author      string       `json:"author" gorm:"type:varchar(255);not null;index"`
 	Description string       `json:"description" gorm:"type:mediumtext"`
-	Photos      []BookPhoto  `json:"photos" gorm:"foreignKey:BookID"`
 	UserID      uint         `json:"user_id" gorm:"not null;type:int unsigned;index"`
 	User        *user.User   `json:"user" gorm:"foreignKey:UserID"`
 	StateID     uint         `json:"state_id" gorm:"not null;type:int unsigned;index"`
 	State       *state.State `json:"state" gorm:"foreignKey:StateID"`
 	Tags        []*tag.Tag   `json:"tags" gorm:"many2many:book_tags"`
+	Photos      []*BookPhoto `json:"photos" gorm:"foreignKey:BookID"`
 	CreatedAt   time.Time    `json:"created_at" gorm:"autoCreateTime"`
 	UpdatedAt   time.Time    `json:"updated_at" gorm:"autoUpdateTime"`
 }
@@ -84,26 +84,13 @@ type UpdateBookStateDTO struct {
 
 // ToBook преобразует DTO в модель Book
 func (dto *CreateBookDTO) ToBook() *Book {
-	book := &Book{
+	return &Book{
 		Title:       dto.Title,
 		Author:      dto.Author,
 		Description: dto.Description,
 		UserID:      dto.UserID,
 		StateID:     dto.StateID,
 	}
-
-	// Создаем фотографии
-	if len(dto.Photos) > 0 {
-		book.Photos = make([]BookPhoto, len(dto.Photos))
-		for i, photoURL := range dto.Photos {
-			book.Photos[i] = BookPhoto{
-				PhotoURL: photoURL,
-				IsMain:   i == 0, // Первая фотография - главная
-			}
-		}
-	}
-
-	return book
 }
 
 // UpdateFromDTO обновляет поля книги из DTO
@@ -116,15 +103,6 @@ func (b *Book) UpdateFromDTO(dto *UpdateBookDTO) {
 	}
 	if dto.Description != "" {
 		b.Description = dto.Description
-	}
-	if len(dto.Photos) > 0 {
-		b.Photos = make([]BookPhoto, len(dto.Photos))
-		for i, photoURL := range dto.Photos {
-			b.Photos[i] = BookPhoto{
-				PhotoURL: photoURL,
-				IsMain:   i == 0, // Первая фотография - главная
-			}
-		}
 	}
 	if dto.StateID != 0 {
 		b.StateID = dto.StateID

@@ -18,6 +18,8 @@ type BookRepository interface {
 	Delete(id uint) error
 	GetAll(page, pageSize int) ([]*book.Book, int64, error)
 	GetUserBooks(userID uint, page, pageSize int) ([]*book.Book, int64, error)
+	CreatePhoto(photo *book.BookPhoto) error
+	DeletePhotos(bookID uint) error
 }
 
 // TagRepository определяет интерфейс для работы с тегами

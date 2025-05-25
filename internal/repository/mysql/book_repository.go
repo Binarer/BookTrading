@@ -102,23 +102,6 @@ func (r *BookRepository) Create(bookData *book.Book) error {
 		return fmt.Errorf("state with ID %d not found", bookData.StateID)
 	}
 
-	// Проверяем фотографии только если они есть
-	if len(bookData.Photos) > 0 {
-		photoURLs := make([]string, len(bookData.Photos))
-		for i, photo := range bookData.Photos {
-			// Проверяем, что photo_url содержит base64 строку
-			if !strings.HasPrefix(photo.PhotoURL, "data:image/") {
-				tx.Rollback()
-				return fmt.Errorf("invalid photo format at index %d: must be base64 encoded image", i)
-			}
-			photoURLs[i] = photo.PhotoURL
-		}
-		if err := validatePhotos(photoURLs); err != nil {
-			tx.Rollback()
-			return fmt.Errorf("invalid photos: %w", err)
-		}
-	}
-
 	// Сохраняем книгу
 	if err := tx.Create(bookData).Error; err != nil {
 		tx.Rollback()
@@ -131,26 +114,12 @@ func (r *BookRepository) Create(bookData *book.Book) error {
 		return fmt.Errorf("failed to create book-tag relations: %w", err)
 	}
 
-	// Создаем фотографии, если они есть
-	if len(bookData.Photos) > 0 {
-		for i, photo := range bookData.Photos {
-			photo.BookID = bookData.ID
-			photo.IsMain = i == 0 // Первая фотография - главная
-			// Сбрасываем ID, чтобы GORM создал новый
-			photo.ID = 0
-			if err := tx.Create(&photo).Error; err != nil {
-				tx.Rollback()
-				return fmt.Errorf("failed to create photo: %w", err)
-			}
-		}
-	}
-
 	return tx.Commit().Error
 }
 
 func (r *BookRepository) GetByID(id uint) (*book.Book, error) {
 	var b book.Book
-	if err := r.db.Preload("Photos").First(&b, id).Error; err != nil {
+	if err := r.db.Preload("Tags").Preload("State").Preload("User").Preload("Photos").First(&b, id).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
 			return nil, repository.ErrNotFound
 		}
@@ -162,7 +131,7 @@ func (r *BookRepository) GetByID(id uint) (*book.Book, error) {
 func (r *BookRepository) Update(b *book.Book) error {
 	// Проверяем существование книги
 	var existingBook book.Book
-	if err := r.db.Preload("Photos").First(&existingBook, b.ID).Error; err != nil {
+	if err := r.db.First(&existingBook, b.ID).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
 			logger.Error("Book not found", fmt.Errorf("book with ID %d not found", b.ID))
 			return errors.New("book not found")
@@ -212,16 +181,6 @@ func (r *BookRepository) Update(b *book.Book) error {
 		}
 	}
 
-	// Валидируем фотографии
-	var photoURLs []string
-	for _, photo := range b.Photos {
-		photoURLs = append(photoURLs, photo.PhotoURL)
-	}
-	if err := validatePhotos(photoURLs); err != nil {
-		logger.Error("Invalid photos", err)
-		return err
-	}
-
 	// Обновляем книгу в транзакции
 	return r.db.Transaction(func(tx *gorm.DB) error {
 		// Обновляем основные данные книги
@@ -229,16 +188,8 @@ func (r *BookRepository) Update(b *book.Book) error {
 			return err
 		}
 
-		// Удаляем старые фотографии
-		if err := tx.Where("book_id = ?", b.ID).Delete(&book.BookPhoto{}).Error; err != nil {
-			return err
-		}
-
-		// Создаем новые фотографии
-		for i := range b.Photos {
-			b.Photos[i].BookID = b.ID
-		}
-		if err := tx.Create(&b.Photos).Error; err != nil {
+		// Обновляем связи с тегами
+		if err := tx.Model(b).Association("Tags").Replace(b.Tags); err != nil {
 			return err
 		}
 
@@ -351,4 +302,14 @@ func (r *BookRepository) GetUserBooks(userID uint, page, pageSize int) ([]*book.
 	}
 
 	return books, total, nil
+}
+
+// CreatePhoto создает новую фотографию для книги
+func (r *BookRepository) CreatePhoto(photo *book.BookPhoto) error {
+	return r.db.Create(photo).Error
+}
+
+// DeletePhotos удаляет все фотографии книги
+func (r *BookRepository) DeletePhotos(bookID uint) error {
+	return r.db.Where("book_id = ?", bookID).Delete(&book.BookPhoto{}).Error
 }

@@ -53,15 +53,21 @@ func (Book) TableName() string {
 	return "books"
 }
 
+// BookPhotoData представляет данные фотографии для создания книги
+type BookPhotoData struct {
+	PhotoURL string `json:"photo_url"`
+	IsMain   bool   `json:"is_main"`
+}
+
 // CreateBookDTO представляет данные для создания книги
 type CreateBookDTO struct {
-	Title       string   `json:"title" binding:"required"`
-	Author      string   `json:"author" binding:"required"`
-	Description string   `json:"description"`
-	Photos      []string `json:"photos"`
-	UserID      uint     `json:"user_id" binding:"required"`
-	StateID     uint     `json:"state_id" binding:"required"`
-	TagIDs      []uint   `json:"tag_ids"`
+	Title       string          `json:"title" binding:"required"`
+	Author      string          `json:"author" binding:"required"`
+	Description string          `json:"description"`
+	Photos      []BookPhotoData `json:"photos"`
+	UserID      uint            `json:"user_id" binding:"required"`
+	StateID     uint            `json:"state_id" binding:"required"`
+	TagIDs      []uint          `json:"tag_ids"`
 }
 
 // UpdateBookDTO представляет данные для обновления книги

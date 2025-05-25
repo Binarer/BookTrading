@@ -237,11 +237,11 @@ func (h *Handler) createBook(w http.ResponseWriter, r *http.Request) {
 
 	// Create photos if they exist
 	if len(dto.Photos) > 0 {
-		for i, photoURL := range dto.Photos {
+		for _, photoData := range dto.Photos {
 			photo := &book.BookPhoto{
 				BookID:   newBook.ID,
-				PhotoURL: photoURL,
-				IsMain:   i == 0, // Первая фотография - главная
+				PhotoURL: photoData.PhotoURL,
+				IsMain:   photoData.IsMain,
 			}
 			if err := h.bookUsecase.CreatePhoto(photo); err != nil {
 				logger.Error("Failed to create photo", err)

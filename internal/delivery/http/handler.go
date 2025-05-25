@@ -1135,7 +1135,7 @@ func (h *Handler) register(w http.ResponseWriter, r *http.Request) {
 // @Accept json
 // @Produce json
 // @Param credentials body user.LoginDTO true "User login credentials"
-// @Success 200 {object} jwt.TokenPair
+// @Success 200 {object} user.LoginResponse
 // @Failure 400 {object} ErrorResponse
 // @Failure 401 {object} ErrorResponse
 // @Failure 500 {object} ErrorResponse
@@ -1156,15 +1156,21 @@ func (h *Handler) login(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Authenticate user and get token response
-	tokenResponse, err := h.userUsecase.Login(&dto)
+	tokenResponse, userID, err := h.userUsecase.Login(&dto)
 	if err != nil {
 		logger.Error("Authentication failed", err)
 		http.Error(w, "Invalid credentials", http.StatusUnauthorized)
 		return
 	}
 
+	response := user.LoginResponse{
+		Token:        tokenResponse.Token,
+		RefreshToken: tokenResponse.RefreshToken,
+		UserID:       userID,
+	}
+
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(tokenResponse)
+	json.NewEncoder(w).Encode(response)
 }
 
 // @Summary Get all tags

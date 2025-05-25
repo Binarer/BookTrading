@@ -11,6 +11,9 @@ type Tag struct {
 	// @Description Название тега
 	// @example fiction
 	Name string `gorm:"size:255;not null;unique" json:"name"`
+	// @Description Фото тега в формате base64
+	// @example data:image/jpeg;base64,/9j/4AAQSkZJRg...
+	Photo string `gorm:"type:text" json:"photo,omitempty"`
 }
 
 // TableName указывает имя таблицы для модели Tag
@@ -24,6 +27,9 @@ type CreateTagDTO struct {
 	// @Description Название тега
 	// @example fiction
 	Name string `json:"name" validate:"required,min=1,max=255"`
+	// @Description Фото тега в формате base64
+	// @example data:image/jpeg;base64,/9j/4AAQSkZJRg...
+	Photo string `json:"photo,omitempty" validate:"omitempty"`
 }
 
 // UpdateTagDTO представляет данные, необходимые для обновления тега
@@ -32,4 +38,7 @@ type UpdateTagDTO struct {
 	// @Description Название тега
 	// @example fiction
 	Name string `json:"name" validate:"omitempty,min=1,max=255"`
-} 
+	// @Description Фото тега в формате base64
+	// @example data:image/jpeg;base64,/9j/4AAQSkZJRg...
+	Photo string `json:"photo,omitempty" validate:"omitempty"`
+}

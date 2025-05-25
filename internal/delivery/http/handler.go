@@ -83,7 +83,7 @@ func NewHandler(
 }
 
 // @Summary Create new tag
-// @Description Create a new tag with the provided name
+// @Description Create a new tag with the provided name and optional photo
 // @Tags Tags
 // @Accept json
 // @Produce json
@@ -111,7 +111,8 @@ func (h *Handler) createTag(w http.ResponseWriter, r *http.Request) {
 
 	// Create new tag
 	newTag := &tag.Tag{
-		Name: dto.Name,
+		Name:  dto.Name,
+		Photo: dto.Photo,
 	}
 
 	// Save tag
@@ -789,7 +790,7 @@ func (h *Handler) getUserBooks(w http.ResponseWriter, r *http.Request) {
 }
 
 // @Summary Update tag
-// @Description Update existing tag information
+// @Description Update existing tag information including optional photo
 // @Tags Tags
 // @Accept json
 // @Produce json

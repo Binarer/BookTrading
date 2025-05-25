@@ -5,7 +5,6 @@ import (
 	"booktrading/internal/domain/tag"
 	"booktrading/internal/pkg/cache"
 	"booktrading/internal/pkg/logger"
-	"database/sql"
 	_ "encoding/json"
 	"fmt"
 	"time"
@@ -40,7 +39,16 @@ func NewTagUseCase(tagRepo repository.TagRepository, bookRepo repository.BookRep
 
 // CreateTag создает новый тег
 func (u *tagUseCase) CreateTag(t *tag.Tag) error {
-	// Создаем тег
+	// Check if tag with same name exists
+	existingTag, err := u.tagRepo.GetByName(t.Name)
+	if err != nil {
+		return fmt.Errorf("failed to check tag existence: %w", err)
+	}
+	if existingTag != nil {
+		return fmt.Errorf("tag with name %s already exists", t.Name)
+	}
+
+	// Create tag
 	if err := u.tagRepo.Create(t); err != nil {
 		return fmt.Errorf("failed to create tag: %w", err)
 	}
@@ -146,27 +154,38 @@ func (u *tagUseCase) GetPopularTags(limit int) ([]*tag.TagWithCount, error) {
 
 // UpdateTag обновляет существующий тег
 func (u *tagUseCase) UpdateTag(id uint, dto *tag.UpdateTagDTO) (*tag.Tag, error) {
-	// Получаем существующий тег
-	existingTag, err := u.GetTagByID(id)
+	// Get existing tag
+	existingTag, err := u.tagRepo.GetByID(id)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to get tag: %w", err)
+	}
+	if existingTag == nil {
+		return nil, fmt.Errorf("tag not found")
 	}
 
-	// Если имя изменилось, проверяем уникальность
-	if dto.Name != "" && dto.Name != existingTag.Name {
-		duplicateTag, err := u.tagRepo.GetByName(dto.Name)
-		if err != nil && err != sql.ErrNoRows {
-			return nil, err
-		}
-		if duplicateTag != nil {
-			return nil, fmt.Errorf("tag name '%s' is not unique", dto.Name)
+	// Update fields
+	if dto.Name != "" {
+		// Check if new name is already taken by another tag
+		if existingTag.Name != dto.Name {
+			tagWithName, err := u.tagRepo.GetByName(dto.Name)
+			if err != nil {
+				return nil, fmt.Errorf("failed to check tag name: %w", err)
+			}
+			if tagWithName != nil && tagWithName.ID != id {
+				return nil, fmt.Errorf("tag with name %s already exists", dto.Name)
+			}
 		}
 		existingTag.Name = dto.Name
 	}
 
-	// Обновляем в репозитории
+	// Update photo if provided
+	if dto.Photo != "" {
+		existingTag.Photo = dto.Photo
+	}
+
+	// Save changes
 	if err := u.tagRepo.Update(existingTag); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to update tag: %w", err)
 	}
 
 	// Инвалидация кеша

@@ -18,12 +18,25 @@ const (
 )
 
 // BookPhoto представляет фотографию книги
+// @Description Модель фотографии книги
 type BookPhoto struct {
-	ID        uint      `json:"id" gorm:"primaryKey;autoIncrement;type:int unsigned"`
-	BookID    uint      `json:"book_id" gorm:"not null;index;type:int unsigned"`
-	PhotoURL  string    `json:"photo_url" gorm:"type:mediumtext;not null"`
-	IsMain    bool      `json:"is_main" gorm:"default:false"`
+	// @Description ID фотографии
+	// @example 1
+	ID uint `json:"id" gorm:"primaryKey;autoIncrement;type:int unsigned"`
+	// @Description ID книги, к которой относится фотография
+	// @example 1
+	BookID uint `json:"book_id" gorm:"not null;index;type:int unsigned"`
+	// @Description URL фотографии в формате base64
+	// @example data:image/jpeg;base64,/9j/4AAQSkZJRg...
+	PhotoURL string `json:"photo_url" gorm:"type:mediumtext;not null"`
+	// @Description Флаг, указывающий является ли фотография главной
+	// @example true
+	IsMain bool `json:"is_main" gorm:"default:false"`
+	// @Description Дата создания
+	// @example 2024-03-20T10:00:00Z
 	CreatedAt time.Time `json:"created_at" gorm:"autoCreateTime"`
+	// @Description Дата обновления
+	// @example 2024-03-20T10:00:00Z
 	UpdatedAt time.Time `json:"updated_at" gorm:"autoUpdateTime"`
 }
 
@@ -33,19 +46,40 @@ func (BookPhoto) TableName() string {
 }
 
 // Book представляет собой книгу в системе
+// @Description Модель книги в системе обмена
 type Book struct {
-	ID          uint         `json:"id" gorm:"primaryKey;autoIncrement;type:int unsigned"`
-	Title       string       `json:"title" gorm:"type:varchar(255);not null;index"`
-	Author      string       `json:"author" gorm:"type:varchar(255);not null;index"`
-	Description string       `json:"description" gorm:"type:mediumtext"`
-	UserID      uint         `json:"user_id" gorm:"not null;type:int unsigned;index"`
-	User        *user.User   `json:"user" gorm:"foreignKey:UserID"`
-	StateID     uint         `json:"state_id" gorm:"not null;type:int unsigned;index"`
-	State       *state.State `json:"state" gorm:"foreignKey:StateID"`
-	Tags        []*tag.Tag   `json:"tags" gorm:"many2many:book_tags"`
-	Photos      []*BookPhoto `json:"photos" gorm:"foreignKey:BookID"`
-	CreatedAt   time.Time    `json:"created_at" gorm:"autoCreateTime"`
-	UpdatedAt   time.Time    `json:"updated_at" gorm:"autoUpdateTime"`
+	// @Description ID книги
+	// @example 1
+	ID uint `json:"id" gorm:"primaryKey;autoIncrement;type:int unsigned"`
+	// @Description Название книги
+	// @example Война и мир
+	Title string `json:"title" gorm:"type:varchar(255);not null;index"`
+	// @Description Автор книги
+	// @example Лев Толстой
+	Author string `json:"author" gorm:"type:varchar(255);not null;index"`
+	// @Description Описание книги
+	// @example Роман-эпопея, описывающий русское общество в эпоху войн против Наполеона
+	Description string `json:"description" gorm:"type:mediumtext"`
+	// @Description ID владельца книги
+	// @example 1
+	UserID uint `json:"user_id" gorm:"not null;type:int unsigned;index"`
+	// @Description Информация о владельце книги
+	User *user.User `json:"user" gorm:"foreignKey:UserID"`
+	// @Description ID состояния книги
+	// @example 1
+	StateID uint `json:"state_id" gorm:"not null;type:int unsigned;index"`
+	// @Description Информация о состоянии книги
+	State *state.State `json:"state" gorm:"foreignKey:StateID"`
+	// @Description Теги книги
+	Tags []*tag.Tag `json:"tags" gorm:"many2many:book_tags"`
+	// @Description Фотографии книги
+	Photos []*BookPhoto `json:"photos" gorm:"foreignKey:BookID"`
+	// @Description Дата создания
+	// @example 2024-03-20T10:00:00Z
+	CreatedAt time.Time `json:"created_at" gorm:"autoCreateTime"`
+	// @Description Дата обновления
+	// @example 2024-03-20T10:00:00Z
+	UpdatedAt time.Time `json:"updated_at" gorm:"autoUpdateTime"`
 }
 
 // TableName указывает имя таблицы для модели Book
@@ -97,13 +131,26 @@ type CreateBookDTO struct {
 }
 
 // UpdateBookDTO представляет данные для обновления книги
+// @Description Данные для обновления существующей книги
 type UpdateBookDTO struct {
-	Title       string   `json:"title"`
-	Author      string   `json:"author"`
-	Description string   `json:"description"`
-	Photos      []string `json:"photos"`
-	StateID     uint     `json:"state_id"`
-	TagIDs      []uint   `json:"tag_ids"`
+	// @Description Название книги
+	// @example Война и мир
+	Title string `json:"title"`
+	// @Description Автор книги
+	// @example Лев Толстой
+	Author string `json:"author"`
+	// @Description Описание книги
+	// @example Роман-эпопея, описывающий русское общество в эпоху войн против Наполеона
+	Description string `json:"description"`
+	// @Description Массив URL фотографий в формате base64
+	// @example ["data:image/jpeg;base64,/9j/4AAQSkZJRg..."]
+	Photos []string `json:"photos"`
+	// @Description ID состояния книги
+	// @example 1
+	StateID uint `json:"state_id"`
+	// @Description Массив ID тегов книги
+	// @example [1, 2, 3]
+	TagIDs []uint `json:"tag_ids"`
 }
 
 // UpdateBookStateDTO представляет данные, необходимые для обновления состояния книги

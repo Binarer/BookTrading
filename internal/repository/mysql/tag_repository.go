@@ -21,11 +21,6 @@ func (r *TagRepository) Create(t *tag.Tag) error {
 	// Проверяем существование тега с таким именем
 	existingTag, err := r.GetByName(t.Name)
 	if err != nil {
-		// Если тег не найден, это нормально - создаем новый
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return r.db.Create(t).Error
-		}
-		// Если произошла другая ошибка, возвращаем её
 		return fmt.Errorf("failed to check tag existence: %w", err)
 	}
 
@@ -49,6 +44,9 @@ func (r *TagRepository) GetByID(id uint) (*tag.Tag, error) {
 func (r *TagRepository) GetByName(name string) (*tag.Tag, error) {
 	var t tag.Tag
 	if err := r.db.Where("name = ?", name).First(&t).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, nil // Возвращаем nil вместо ошибки, если тег не найден
+		}
 		return nil, err
 	}
 	return &t, nil

@@ -187,12 +187,51 @@ func (h *Handler) getPopularTags(w http.ResponseWriter, r *http.Request) {
 // @Accept json
 // @Produce json
 // @Param book body book.CreateBookDTO true "Book data"
-// @Success 201 {object} book.Book
-// @Failure 400 {object} ErrorResponse
-// @Failure 401 {object} ErrorResponse
-// @Failure 500 {object} ErrorResponse
+// @Success 201 {object} book.Book "Created book"
+// @Failure 400 {object} ErrorResponse "Invalid request data"
+// @Failure 401 {object} ErrorResponse "Unauthorized"
+// @Failure 500 {object} ErrorResponse "Internal server error"
 // @Security Bearer
 // @Router /api/v1/books [post]
+// @Example {json} Request:
+//
+//	{
+//	  "title": "Война и мир",
+//	  "author": "Лев Толстой",
+//	  "description": "Роман-эпопея, описывающий русское общество в эпоху войн против Наполеона",
+//	  "photos": [
+//	    {
+//	      "photo_url": "data:image/jpeg;base64,/9j/4AAQSkZJRg...",
+//	      "is_main": true
+//	    }
+//	  ],
+//	  "user_id": 1,
+//	  "state_id": 1,
+//	  "tag_ids": [1, 2, 3]
+//	}
+//
+// @Example {json} Success Response:
+//
+//	{
+//	  "id": 1,
+//	  "title": "Война и мир",
+//	  "author": "Лев Толстой",
+//	  "description": "Роман-эпопея, описывающий русское общество в эпоху войн против Наполеона",
+//	  "photos": [
+//	    {
+//	      "id": 1,
+//	      "book_id": 1,
+//	      "photo_url": "data:image/jpeg;base64,/9j/4AAQSkZJRg...",
+//	      "is_main": true,
+//	      "created_at": "2024-03-20T12:00:00Z",
+//	      "updated_at": "2024-03-20T12:00:00Z"
+//	    }
+//	  ],
+//	  "user_id": 1,
+//	  "state_id": 1,
+//	  "created_at": "2024-03-20T12:00:00Z",
+//	  "updated_at": "2024-03-20T12:00:00Z"
+//	}
 func (h *Handler) createBook(w http.ResponseWriter, r *http.Request) {
 	// Get claims from context
 	_, claims, err := jwtauth.FromContext(r.Context())

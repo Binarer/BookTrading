@@ -54,20 +54,46 @@ func (Book) TableName() string {
 }
 
 // BookPhotoData представляет данные фотографии для создания книги
+// @Description Данные фотографии для создания книги
 type BookPhotoData struct {
+	// @Description URL фотографии в формате base64
+	// @example "data:image/jpeg;base64,/9j/4AAQSkZJRg..."
 	PhotoURL string `json:"photo_url"`
-	IsMain   bool   `json:"is_main"`
+
+	// @Description Флаг, указывающий является ли фотография главной
+	// @example true
+	IsMain bool `json:"is_main"`
 }
 
 // CreateBookDTO представляет данные для создания книги
+// @Description Данные для создания новой книги
 type CreateBookDTO struct {
-	Title       string          `json:"title" binding:"required"`
-	Author      string          `json:"author" binding:"required"`
-	Description string          `json:"description"`
-	Photos      []BookPhotoData `json:"photos"`
-	UserID      uint            `json:"user_id" binding:"required"`
-	StateID     uint            `json:"state_id" binding:"required"`
-	TagIDs      []uint          `json:"tag_ids"`
+	// @Description Название книги
+	// @example "Война и мир"
+	Title string `json:"title" binding:"required"`
+
+	// @Description Автор книги
+	// @example "Лев Толстой"
+	Author string `json:"author" binding:"required"`
+
+	// @Description Описание книги
+	// @example "Роман-эпопея, описывающий русское общество в эпоху войн против Наполеона"
+	Description string `json:"description"`
+
+	// @Description Массив фотографий книги
+	Photos []BookPhotoData `json:"photos"`
+
+	// @Description ID пользователя-владельца книги
+	// @example 1
+	UserID uint `json:"user_id" binding:"required"`
+
+	// @Description ID состояния книги (1 - доступна, 2 - недоступна)
+	// @example 1
+	StateID uint `json:"state_id" binding:"required"`
+
+	// @Description Массив ID тегов книги
+	// @example [1, 2, 3]
+	TagIDs []uint `json:"tag_ids"`
 }
 
 // UpdateBookDTO представляет данные для обновления книги

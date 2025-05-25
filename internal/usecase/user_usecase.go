@@ -18,7 +18,7 @@ var (
 
 type UserUseCase interface {
 	Register(dto *user.CreateUserDTO) (*user.User, error)
-	Login(dto *user.LoginDTO) (*user.TokenResponse, error)
+	Login(dto *user.LoginDTO) (*user.TokenResponse, uint, error)
 	GetByID(id uint) (*user.User, error)
 	GetAll(page, pageSize int) ([]*user.User, int64, error)
 	Update(id uint, dto *user.UpdateUserDTO) (*user.User, error)
@@ -69,31 +69,31 @@ func (u *userUseCase) Register(dto *user.CreateUserDTO) (*user.User, error) {
 	return newUser, nil
 }
 
-func (u *userUseCase) Login(dto *user.LoginDTO) (*user.TokenResponse, error) {
+func (u *userUseCase) Login(dto *user.LoginDTO) (*user.TokenResponse, uint, error) {
 	// Get user by login
 	existingUser, err := u.userRepo.GetByLogin(dto.Login)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get user: %w", err)
+		return nil, 0, fmt.Errorf("failed to get user: %w", err)
 	}
 	if existingUser == nil {
-		return nil, ErrInvalidCredentials
+		return nil, 0, ErrInvalidCredentials
 	}
 
 	// Check password
 	if err := bcrypt.CompareHashAndPassword([]byte(existingUser.Password), []byte(dto.Password)); err != nil {
-		return nil, ErrInvalidCredentials
+		return nil, 0, ErrInvalidCredentials
 	}
 
 	// Generate JWT token pair
 	tokenPair, err := u.jwtSvc.GenerateTokenPair(existingUser)
 	if err != nil {
-		return nil, fmt.Errorf("failed to generate token pair: %w", err)
+		return nil, 0, fmt.Errorf("failed to generate token pair: %w", err)
 	}
 
 	return &user.TokenResponse{
 		Token:        tokenPair.AccessToken,
 		RefreshToken: tokenPair.RefreshToken,
-	}, nil
+	}, existingUser.ID, nil
 }
 
 func (u *userUseCase) GetByID(id uint) (*user.User, error) {

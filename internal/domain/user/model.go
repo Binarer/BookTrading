@@ -55,9 +55,6 @@ type CreateUserDTO struct {
 // UpdateUserDTO представляет данные для обновления пользователя
 // @Description Данные для обновления существующего пользователя
 type UpdateUserDTO struct {
-	// @Description Логин пользователя
-	// @example john_doe
-	Login string `json:"login" binding:"omitempty,min=3,max=50"`
 	// @Description Отображаемое имя пользователя
 	// @example John Doe
 	Username string `json:"username" binding:"omitempty,min=2,max=50"`
@@ -113,9 +110,6 @@ func (dto *CreateUserDTO) ToUser() *User {
 
 // UpdateFromDTO обновляет поля пользователя из DTO
 func (u *User) UpdateFromDTO(dto *UpdateUserDTO) {
-	if dto.Login != "" {
-		u.Login = dto.Login
-	}
 	if dto.Username != "" {
 		u.Username = dto.Username
 	}

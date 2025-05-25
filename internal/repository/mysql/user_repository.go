@@ -116,23 +116,7 @@ func (r *UserRepository) GetAll(page, pageSize int) ([]*user.User, int64, error)
 
 // Update обновляет пользователя в базе данных
 func (r *UserRepository) Update(user *user.User) error {
-	// Проверяем уникальность логина, исключая текущего пользователя
-	if user.Login != "" {
-		var count int64
-		if err := r.db.Model(user).Where("login = ? AND id != ?", user.Login, user.ID).Count(&count).Error; err != nil {
-			logger.Error("Failed to check login uniqueness", err)
-			return err
-		}
-		if count > 0 {
-			return errors.New("login must be unique")
-		}
-	}
-
 	updates := map[string]interface{}{}
-
-	if user.Login != "" {
-		updates["login"] = user.Login
-	}
 
 	if user.Username != "" {
 		updates["username"] = user.Username

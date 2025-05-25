@@ -29,9 +29,13 @@ func (r *TagRepository) Create(t *tag.Tag) error {
 		return fmt.Errorf("failed to check tag existence: %w", err)
 	}
 
-	// Если тег уже существует, возвращаем его
-	*t = *existingTag
-	return nil
+	// Если тег уже существует, возвращаем ошибку
+	if existingTag != nil {
+		return fmt.Errorf("tag with name %s already exists", t.Name)
+	}
+
+	// Создаем новый тег
+	return r.db.Create(t).Error
 }
 
 func (r *TagRepository) GetByID(id uint) (*tag.Tag, error) {
